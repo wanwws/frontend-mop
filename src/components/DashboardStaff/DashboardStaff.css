@@ -1,0 +1,44 @@
+/* === Responsive for Summary Row (Dashboard only) === */
+.dashboard-page .summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-grow: 1;
+  gap: 25px;
+}
+
+.dashboard-page .summary-row .summary-column {
+  width: 100%;
+  max-width: 350px;
+  height: 85px;
+}
+
+.dashboard-page .summary-row .double-arrow {
+  width: 26px;
+  object-fit: contain;
+  margin-left: 40px;
+}
+
+/* Responsive: stack vertically when screen < 992px */
+@media (max-width: 992px) {
+  .dashboard-page .summary-row {
+    flex-direction: column;
+    gap: 15px;
+    align-items: center;
+  }
+
+  .dashboard-page .summary-row .summary-column {
+    max-width: 420px;
+    width: 100%;
+  }
+
+  .dashboard-page .summary-row .double-arrow {
+    display: none;
+  }
+}
+
+@media (max-width: 576px) {
+  .dashboard-page .summary-row .summary-column {
+    max-width: 90%;
+  }
+}

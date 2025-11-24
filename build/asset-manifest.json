@@ -1,0 +1,25 @@
+{
+  "files": {
+    "main.css": "/static/css/main.6ee5a6cd.css",
+    "main.js": "/static/js/main.f5360fe3.js",
+    "static/js/38.cffa67ab.chunk.js": "/static/js/38.cffa67ab.chunk.js",
+    "static/js/453.dd6e2215.chunk.js": "/static/js/453.dd6e2215.chunk.js",
+    "static/media/bg-wave.png": "/static/media/bg-wave.1c5d373f471c694a4ba1.png",
+    "static/media/dash-bg.png": "/static/media/dash-bg.fae55c54b39ed270da7e.png",
+    "static/media/Prompt-Bold.ttf": "/static/media/Prompt-Bold.7fdea824c0e8a36f26d5.ttf",
+    "static/media/Prompt-Medium.ttf": "/static/media/Prompt-Medium.13aa547876aaa510c372.ttf",
+    "static/media/Prompt-SemiBold.ttf": "/static/media/Prompt-SemiBold.a283df5464c25fe8e59a.ttf",
+    "static/media/Prompt-Regular.ttf": "/static/media/Prompt-Regular.a8979f5fddba897421a7.ttf",
+    "static/media/process-checkpoint-bg.png": "/static/media/process-checkpoint-bg.fce846ad6bd39866e336.png",
+    "static/media/cloud-bg.png": "/static/media/cloud-bg.69cb4d1a1f1980c92875.png",
+    "index.html": "/index.html",
+    "main.6ee5a6cd.css.map": "/static/css/main.6ee5a6cd.css.map",
+    "main.f5360fe3.js.map": "/static/js/main.f5360fe3.js.map",
+    "38.cffa67ab.chunk.js.map": "/static/js/38.cffa67ab.chunk.js.map",
+    "453.dd6e2215.chunk.js.map": "/static/js/453.dd6e2215.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.6ee5a6cd.css",
+    "static/js/main.f5360fe3.js"
+  ]
+}
