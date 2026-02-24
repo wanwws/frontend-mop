@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable jsx-a11y/anchor-is-valid */
 import React, { useState, useEffect } from "react";
-import { Button, message, Modal, Pagination } from "antd";
+import { Button, Dropdown, message, Modal, Pagination } from "antd";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import axios from "axios";
@@ -9,11 +9,16 @@ import i18n from "../../i18n";
 import "bootstrap/dist/css/bootstrap.min.css";
 import BASE_URL from "../../config/apiConfig";
 import MenuPage from "../Menu/MenuPage";
+import { DownOutlined } from "@ant-design/icons";
 
 const EmissionsRecord = () => {
   const navigate = useNavigate();
   const userRole = parseInt(localStorage.getItem("roleID"), 10);
   const isHospital = userRole === 4;
+  const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
+  const accessLevel = userInfo?.accessLevelID;
+  const isOrganization =
+    (userRole === 3 || userRole === 4) && accessLevel === 6;
 
   const [provinces, setProvinces] = useState([]);
   const [districts, setDistricts] = useState([]);
@@ -21,6 +26,9 @@ const EmissionsRecord = () => {
 
   const [selectedProvince, setSelectedProvince] = useState("");
   const [selectedDistrict, setSelectedDistrict] = useState("");
+  const [selectedProvinceName, setSelectedProvinceName] = useState("");
+  const [selectedDistrictName, setSelectedDistrictName] = useState("");
+
   const [selectedHospitalName, setSelectedHospitalName] = useState(""); // ใช้แสดง dropdown
   const [selectedHospitalCode, setSelectedHospitalCode] = useState(""); // ใช้ส่ง API
   const [selectedDate, setSelectedDate] = useState(
@@ -54,32 +62,44 @@ const EmissionsRecord = () => {
   };
 
   useEffect(() => {
-    if (isHospital) {
+    if (isHospital || isOrganization) {
       (async () => {
         try {
           const provinceRes = await axios.get(`${BASE_URL}/master/province`, {
             headers: { Authorization: `Bearer ${getToken()}` },
           });
-          setSelectedProvince(provinceRes.data.data[0]?.nameTH || "");
+
+          const provinceData = provinceRes.data.data[0] || {};
+          setSelectedProvince(provinceData.provinceCode || "");
+          setSelectedProvinceName(provinceData.nameTH || "");
 
           const districtRes = await axios.get(`${BASE_URL}/master/district`, {
+            params: { provinceCode: provinceData.provinceCode },
             headers: { Authorization: `Bearer ${getToken()}` },
           });
-          setSelectedDistrict(districtRes.data.data[0]?.nameTH || "");
+
+          const districtData = districtRes.data.data[0] || {};
+          setSelectedDistrict(districtData.districtCode || "");
+          setSelectedDistrictName(districtData.nameTH || "");
 
           const hospitalRes = await axios.get(`${BASE_URL}/master/hospital`, {
+            params: {
+              districtCode: districtRes.data.data[0]?.districtCode,
+              provinceCode: provinceRes.data.data[0]?.provinceCode,
+            },
             headers: { Authorization: `Bearer ${getToken()}` },
           });
 
           const hospitalData = hospitalRes.data.data[0] || {};
+          setSelectedHospitalCode(hospitalData.hospitalCode);
+          setSelectedHospitalName(hospitalData.nameTH);
+
+          // เก็บลง storage เผื่อหน้าอื่นใช้
           localStorage.setItem("hospitalCode", hospitalData.hospitalCode);
 
+          // โหลด record ทันที
           if (hospitalData.hospitalCode) {
-            setSelectedHospitalName(hospitalData.nameTH);
             fetchRecords(hospitalData.hospitalCode, selectedDate);
-          } else {
-            console.warn("⚠️ No hospitalCode found!");
-            setError("Hospital data not found.");
           }
         } catch (error) {
           console.error("❌ Error fetching hospital data:", error);
@@ -87,7 +107,7 @@ const EmissionsRecord = () => {
         }
       })();
     }
-  }, [isHospital]);
+  }, [isHospital, isOrganization]);
 
   useEffect(() => {
     if (!isHospital) {
@@ -126,7 +146,10 @@ const EmissionsRecord = () => {
 
       axios
         .get(`${BASE_URL}/master/hospital`, {
-          params: { districtCode: selectedDistrict, provinceCode: selectedProvince },
+          params: {
+            districtCode: selectedDistrict,
+            provinceCode: selectedProvince,
+          },
           headers: { Authorization: `Bearer ${getToken()}` },
         })
         .then((res) => setHospitals(res.data.data))
@@ -215,6 +238,58 @@ const EmissionsRecord = () => {
     }
   };
 
+  const exportData = async (type) => {
+    try {
+      const token = getToken();
+      if (!token) {
+        message.error("Missing token!");
+        return;
+      }
+
+      // 1) เก็บ quarterInputID ของ record ที่ถูกเลือก
+      const selected = records
+        .filter((record) => record.isChecked)
+        .map((item) => item.quarterInputID);
+
+      if (selected.length === 0) {
+        message.warning("Please select at least one record.");
+        return;
+      }
+
+      const body = {
+        quarterInputList: selected,
+        hospitalCode: selectedHospitalCode || hospitalCodeFromStorage,
+        type: type, // "csv" / "pdf"
+      };
+
+      const res = await axios.post(`${BASE_URL}/report/THEMS/template`, body, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (res.data?.statusCode === 200 && res.data?.data) {
+        const fileUrl = res.data.data;
+
+        // เปิดลิงก์ให้ดาวน์โหลด
+        window.open(fileUrl, "_blank");
+        message.success("Export success!");
+      } else {
+        message.error(res.data?.message || "Export failed");
+      }
+    } catch (err) {
+      console.error(err);
+      message.error(err.response?.data?.message || "Export error");
+    }
+  };
+
+  const displayYear = (year, lang) => {
+    if (!year) return "-";
+
+    return lang === "th" ? Number(year) + 543 : year;
+  };
+
   return (
     <div className="main-bg">
       <div className="menu-toggle" id="show-menu-bar">
@@ -250,11 +325,13 @@ const EmissionsRecord = () => {
                       setSelectedHospitalName("");
                       setRecords([]);
                     }}
-                    disabled={isHospital}
+                    disabled={isHospital || isOrganization}
                     defaultValue=""
                   >
                     {isHospital ? (
-                      <option>{selectedProvince}</option>
+                      <option>
+                        {selectedProvinceName || selectedProvince}
+                      </option>
                     ) : (
                       <>
                         <option value="">{t("Select Province")}</option>
@@ -280,11 +357,13 @@ const EmissionsRecord = () => {
                       setSelectedHospitalName("");
                       setRecords([]);
                     }}
-                    disabled={isHospital || !selectedProvince}
+                    disabled={isHospital || isOrganization || !selectedProvince}
                     defaultValue=""
                   >
                     {isHospital ? (
-                      <option>{selectedDistrict}</option>
+                      <option>
+                        {selectedDistrictName || selectedDistrict}
+                      </option>
                     ) : (
                       <>
                         <option value="">{t("Select District")}</option>
@@ -315,7 +394,7 @@ const EmissionsRecord = () => {
 
                       localStorage.setItem("hospitalCode", selectedCode);
                     }}
-                    disabled={isHospital || !selectedDistrict}
+                    disabled={isHospital || isOrganization || !selectedDistrict}
                   >
                     {isHospital ? (
                       <option>{selectedHospitalName}</option> // ใช้ selectedHospitalName
@@ -373,6 +452,26 @@ const EmissionsRecord = () => {
                       {records.length > 0 ? (
                         records.map((record, index) => (
                           <tr key={record.id}>
+                            <td className="text-center">
+                              <input
+                                type="checkbox"
+                                disabled={record.statusID !== 3} // ❌ disable ถ้ายังไม่ submit
+                                onChange={(e) => {
+                                  const updated = [...records];
+                                  updated[index].isChecked = e.target.checked;
+                                  setRecords(updated);
+                                }}
+                                style={{
+                                  width: "20px",
+                                  height: "20px",
+                                  accentColor: "#0D7664", // สีเขียว MOPH
+                                  cursor:
+                                    record.statusID !== 3
+                                      ? "not-allowed"
+                                      : "pointer",
+                                }}
+                              />
+                            </td>
                             <td className="text-center">{index + 1}</td>
                             <td
                               className="text-center"
@@ -383,8 +482,9 @@ const EmissionsRecord = () => {
                                 : record.monthEN) || "-"}
                             </td>
                             <td className="text-center">
-                              {record.year || "-"}
+                              {displayYear(record.year, currentLang)}
                             </td>
+
                             <td className="text-center">
                               {record.createdAt || "-"}
                             </td>
@@ -438,8 +538,58 @@ const EmissionsRecord = () => {
                     </tbody>
                   </table>
                 )}
+                {/* ✅ ปุ่ม Export ใต้ตารางตรงที่มึงวงแดงไว้ */}
                 {!loading && !error && records.length > 0 && (
-                  <div className="pagination-container">
+                  <div
+                    className="pagination-container"
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginTop: "20px",
+                      marginBottom: "40px",
+                      padding: "0 24px",
+                    }}
+                  >
+                    {/* ปุ่ม Export พร้อม Dropdown UI */}
+                    <Dropdown
+                      menu={{
+                        items: [
+                          {
+                            key: "csv",
+                            label: "THEMS Report (CSV)",
+                            onClick: () => exportData("csv"),
+                          },
+                          // {
+                          //   key: "pdf",
+                          //   label: "THEMS Report (PDF)",
+                          //   onClick: () => exportData("pdf"),
+                          // },
+                        ],
+                      }}
+                      placement="bottom"
+                      trigger={["click"]}
+                    >
+                      <Button
+                        type="primary"
+                        size="large"
+                        style={{
+                          backgroundColor: "#0D7664",
+                          borderColor: "#0D7664",
+                          color: "white",
+                          borderRadius: "10px",
+                          padding: "0 40px",
+                          height: "48px",
+                          fontWeight: "500",
+                          fontSize: "18px",
+                          boxShadow: "0 4px 8px rgba(0,0,0,0.15)",
+                        }}
+                      >
+                        {t("Export")} <DownOutlined />
+                      </Button>
+                    </Dropdown>
+
+                    {/* Pagination */}
                     <Pagination
                       current={page}
                       total={totalRecords}

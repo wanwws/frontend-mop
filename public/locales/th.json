@@ -240,5 +240,10 @@
   "Failed to update status": "อัปเดตสถานะไม่สำเร็จ",
   "No records found. Please search hospital code.": "ไม่พบข้อมูล กรุณาค้นหาด้วยรหัสหน่วยงาน 9 หลัก",
   "Do you want to revert this record to save draft?": "คุณต้องการถอยสถานะรายการนี้กลับเป็นบันทึกหรือไม่?",
-  "Loading...": "กำลังโหลด..."
+  "Loading...": "กำลังโหลด...",
+  "Export Status": "การส่งออกสถานะ",
+  "EXPORT STATUS": "การส่งออกสถานะ",
+  "Export status": "ส่งออกสถานะ",
+  "Export status report for internal use.": "ส่งออกรายงานสถานะสำหรับใช้ภายใน",
+  "This feature allows System Admin/Staff to download the latest hospital status summary.": "ฟีเจอร์นี้ช่วยให้ผู้ดูแลระบบ/เจ้าหน้าที่สามารถดาวน์โหลดสรุปสถานะล่าสุดของโรงพยาบาลได้"
 }

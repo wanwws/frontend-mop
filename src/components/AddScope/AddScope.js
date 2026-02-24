@@ -15,6 +15,27 @@ import MenuPage from "../Menu/MenuPage";
 
 const { Option } = Select;
 
+// ===== Quarter Scoped Storage (Minimal Helper) =====
+const getQuarterID = () => sessionStorage.getItem("quarterInputID");
+
+const qKey = (key) => {
+  const qid = getQuarterID();
+  return qid ? `${key}_${qid}` : key;
+};
+
+const qSet = (key, value) => {
+  sessionStorage.setItem(qKey(key), JSON.stringify(value));
+};
+
+const qGet = (key, defaultValue = null) => {
+  const raw = sessionStorage.getItem(qKey(key));
+  return raw ? JSON.parse(raw) : defaultValue;
+};
+
+const qRemove = (key) => {
+  sessionStorage.removeItem(qKey(key));
+};
+
 const EditableDropdownInput = ({
   value = "",
   onChange,
@@ -44,7 +65,6 @@ const EditableDropdownInput = ({
     const intPart = Number(parts[0]).toLocaleString();
     return parts.length > 1 ? `${intPart}.${parts[1]}` : intPart;
   };
-  
 
   return (
     <div onDoubleClick={() => !disabled && setIsEditing(true)}>
@@ -63,25 +83,23 @@ const EditableDropdownInput = ({
         </Select>
       ) : (
         <Input
-        value={
-          value !== "" && !isNaN(Number(value))
-            ? formatNumber(value)
-            : value ?? ""
-        }
-        onChange={(e) => {
-          if (!disabled) {
-            const raw = e.target.value.replace(/,/g, "");
-            // ตรวจเฉพาะค่าที่เป็นตัวเลข หรือมีทศนิยม
-            if (/^\d*\.?\d*$/.test(raw)) {
-              onChange(raw);
-            }
+          value={
+            value !== "" && !isNaN(Number(value))
+              ? formatNumber(value)
+              : value ?? ""
           }
-        }}
-        onBlur={handleInputBlur}
-        disabled={disabled}
-      />
-      
-
+          onChange={(e) => {
+            if (!disabled) {
+              const raw = e.target.value.replace(/,/g, "");
+              // ตรวจเฉพาะค่าที่เป็นตัวเลข หรือมีทศนิยม
+              if (/^\d*\.?\d*$/.test(raw)) {
+                onChange(raw);
+              }
+            }
+          }}
+          onBlur={handleInputBlur}
+          disabled={disabled}
+        />
       )}
     </div>
   );
@@ -121,11 +139,28 @@ const AddScope = ({ scopeID }) => {
   const scopekey = `scope_${scopeID}`;
   const isTH = (i18n.language || "").toLowerCase().startsWith("th");
 
+  useEffect(() => {
+    if (emissionData?.quarterInputID) {
+      sessionStorage.setItem(
+        "quarterInputID",
+        String(emissionData.quarterInputID)
+      );
+    }
+  }, [emissionData?.quarterInputID]);
+  useEffect(() => {
+    const qid = sessionStorage.getItem("quarterInputID");
+    if (qid && !emissionData?.quarterInputID) {
+      setEmissionData((prev) => ({
+        ...prev,
+        quarterInputID: Number(qid),
+      }));
+    }
+  }, []);
 
   useEffect(() => {
-    const storedScopeData =
-      JSON.parse(localStorage.getItem("scopePercentages")) || {};
-    const storedEmissionData = JSON.parse(localStorage.getItem("emissionData"));
+    const storedScopeData = qGet("scopePercentages", {});
+    const storedEmissionData = qGet("emissionData", {});
+
     setScopePercentages(storedScopeData);
 
     if (storedEmissionData) {
@@ -141,14 +176,15 @@ const AddScope = ({ scopeID }) => {
   }, []);
 
   useEffect(() => {
-    const storedSummary = JSON.parse(localStorage.getItem("summaryData"));
+    const storedSummary = qGet("summaryData", {});
+
     if (storedSummary) {
       setSummaryData(storedSummary);
     }
   }, []);
 
   useEffect(() => {
-    const storedRecords = JSON.parse(localStorage.getItem(scopekey)) || [];
+    const storedRecords = qGet(scopekey, []);
     if (storedRecords.length > 0) {
       setRecords(storedRecords);
     }
@@ -156,25 +192,29 @@ const AddScope = ({ scopeID }) => {
 
   useEffect(() => {
     const fetchDataAsync = async () => {
-      if (emissionData?.quarterInputID) {
-        setLoading(true);
-        try {
-          if (!localstorageData.getEditActivityStatus()) {
-            const storedRecords =
-              JSON.parse(localStorage.getItem(scopekey)) || [];
-            if (storedRecords.length > 0) {
-              setRecords(storedRecords);
-            } else {
-              await fetchData();
-            }
+      // 🛑 ถ้ายังไม่มี quarter → อย่าโหลด อย่าค้าง
+      if (!emissionData?.quarterInputID) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        if (!localstorageData.getEditActivityStatus()) {
+          const storedRecords = qGet(scopekey, []);
+
+          if (storedRecords.length > 0) {
+            setRecords(storedRecords);
           } else {
-            await localDataScope();
+            await fetchData();
           }
-        } catch (error) {
-          console.error("❌ Error fetching data:", error);
-        } finally {
-          setLoading(false);
+        } else {
+          await localDataScope();
         }
+      } catch (error) {
+        console.error("❌ Error fetching data:", error);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -182,49 +222,53 @@ const AddScope = ({ scopeID }) => {
   }, [emissionData.quarterInputID, currentLang, scopeID]);
 
   useEffect(() => {
-    const storedMonths = localStorage.getItem("months");
-  
-    if (storedMonths) {
-      setMonths(JSON.parse(storedMonths));
+    const storedMonths = qGet("months", []);
+    setMonths(storedMonths);
+  }, []);
+
+  const sendCloseSession = () => {
+    const token = localStorage.getItem("token");
+    const hospitalCode = localStorage.getItem("hospitalCode");
+    const quarterInputID =
+      sessionStorage.getItem("quarterInputID") ||
+      localStorage.getItem("quarterInputID");
+
+    if (!token || !hospitalCode || !quarterInputID) return;
+
+    const url = `${BASE_URL}/staff/auth/session/${hospitalCode}/${quarterInputID}`;
+
+    try {
+      // 🟢 ใช้ fetch แบบ keepalive จะยิงได้แม้แท็บกำลังปิดอยู่
+      fetch(url, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        keepalive: true, // ✅ สำคัญสุด
+      });
+
+      console.log("📡 DELETE session sent before tab close");
+      qRemove("emissionData");
+      qRemove("months");
+      qRemove("summaryData");
+      for (let i = 1; i <= 5; i++) {
+        qRemove(`scope_${i}`);
+      }
+      qRemove("scopePercentages");
+    } catch (error) {
+      console.warn("⚠️ Failed to close session automatically:", error);
     }
-  }, []);  
-
-   const sendCloseSession = () => {
-  const token = localStorage.getItem("token");
-  const hospitalCode = localStorage.getItem("hospitalCode");
-  const quarterInputID = localStorage.getItem("quarterInputID");
-
-  if (!token || !hospitalCode || !quarterInputID) return;
-
-  const url = `${BASE_URL}/staff/auth/session/${hospitalCode}/${quarterInputID}`;
-
-  try {
-    // 🟢 ใช้ fetch แบบ keepalive จะยิงได้แม้แท็บกำลังปิดอยู่
-    fetch(url, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      keepalive: true, // ✅ สำคัญสุด
-    });
-
-    console.log("📡 DELETE session sent before tab close");
-    localStorage.removeItem("currentSession");
-    localStorage.removeItem("quarterInputID");
-  } catch (error) {
-    console.warn("⚠️ Failed to close session automatically:", error);
-  }
-};
+  };
 
   useEffect(() => {
     const handleBeforeUnload = () => {
       // ปิดแท็บหรือรีเฟรช browser
       sendCloseSession();
     };
-  
+
     // ผูก event เวลา browser ปิดหน้า/รีเฟรช
     window.addEventListener("beforeunload", handleBeforeUnload);
-  
+
     return () => {
       // ลบ event listener ตอน component ถูก unmount
       window.removeEventListener("beforeunload", handleBeforeUnload);
@@ -234,7 +278,7 @@ const AddScope = ({ scopeID }) => {
       const safePaths = ["/add-scope", "/add-record"];
       // ✅ ตรวจว่า URL ปัจจุบันเริ่มด้วย safe path หรือไม่
       const isSafe = safePaths.some((path) => nextUrl.startsWith(path));
-  
+
       // ❌ ถ้าไม่ใช่ safe path แปลว่าออกนอกระบบ เช่น logout / ปิดแท็บ
       if (!isSafe) {
         sendCloseSession();
@@ -252,16 +296,16 @@ const AddScope = ({ scopeID }) => {
     2: "/images/scope-2.png",
     3: "/images/scope-3.png",
     4: "/images/scope-4.png",
-    5: "/images/scope-5.png"
+    5: "/images/scope-5.png",
   };
 
   // const scopeImage = scopeID !== 5 ? scopeImages[scopeID] || "/images/default-scope.png" : null;
   const scopeImage = scopeImages[scopeID] || "/images/default-scope.png";
 
-
   const localDataScope = async () => {
     try {
-      const localScopeData = JSON.parse(localStorage.getItem(scopekey)) || [];
+      const localScopeData = qGet(scopekey, []);
+
       setRecords(localScopeData);
 
       if (!localScopeData.length) {
@@ -296,7 +340,11 @@ const AddScope = ({ scopeID }) => {
     } catch (error) {
       console.error("❌ Error fetching local scope data:", error);
       message.error("Failed to fetch local storage data.");
-      message.error(isTH ? "ดึงข้อมูลจาก Local Storage ไม่สำเร็จ" : "Failed to fetch local storage data.");
+      message.error(
+        isTH
+          ? "ดึงข้อมูลจาก Local Storage ไม่สำเร็จ"
+          : "Failed to fetch local storage data."
+      );
     } finally {
       setLoading(false);
     }
@@ -304,13 +352,10 @@ const AddScope = ({ scopeID }) => {
 
   const fetchData = async () => {
     try {
-      const response = await axios.get(
-        `${BASE_URL}/activity/history`,
-        {
-          params: queryParams,
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await axios.get(`${BASE_URL}/activity/history`, {
+        params: queryParams,
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       if (response.data.statusCode === 200) {
         const responseData = response.data.data;
@@ -326,7 +371,7 @@ const AddScope = ({ scopeID }) => {
           scopeData[scope.scopeID] = scope.percentOfData;
         });
         setScopePercentages(scopeData);
-        localStorage.setItem("scopePercentages", JSON.stringify(scopeData));
+        qSet("scopePercentages", scopeData);
         process.setProgress();
 
         // เก็บ Emission Data ลง localStorage
@@ -339,7 +384,11 @@ const AddScope = ({ scopeID }) => {
           year: emissionData.year,
         };
         setEmissionData(newEmissionData);
-        localStorage.setItem("emissionData", JSON.stringify(newEmissionData));
+        qSet("emissionData", newEmissionData);
+        if (responseData.statusID === 3) {
+  setIsDisabled(true);
+  setIsSubmitted(true);
+}
 
         // ใช้ข้อมูลเดือนแบบ Array
         const dynamicMonths =
@@ -348,8 +397,7 @@ const AddScope = ({ scopeID }) => {
             name: month?.monthNameEN?.toLowerCase() ?? "",
           })) ?? [];
         setMonths(dynamicMonths);
-        localStorage.setItem("months", JSON.stringify(dynamicMonths));
-
+        qSet("months", dynamicMonths);
         const activityList = responseData.activityList ?? [];
         const allScopes = activityList.reduce((acc, scope) => {
           const scopeID = scope.scopeID ?? 0;
@@ -376,7 +424,7 @@ const AddScope = ({ scopeID }) => {
               )?.name;
               if (monthKey) {
                 mainRecord[monthKey] = value.value ?? "";
-                mainRecord[`${monthKey}_recordID`] = value.recordID ?? null
+                mainRecord[`${monthKey}_recordID`] = value.recordID ?? null;
               }
             });
 
@@ -404,7 +452,7 @@ const AddScope = ({ scopeID }) => {
                   )?.name;
                   if (monthKey) {
                     subRecord[monthKey] = value.value ?? "";
-                    subRecord[`${monthKey}_recordID`] = value.recordID ?? null
+                    subRecord[`${monthKey}_recordID`] = value.recordID ?? null;
                   }
                 });
 
@@ -421,10 +469,7 @@ const AddScope = ({ scopeID }) => {
 
         // บันทึกทุก Scope (1-5) ลง localStorage
         for (let i = 1; i <= 5; i++) {
-          localStorage.setItem(
-            `scope_${i}`,
-            JSON.stringify(allScopes[i] || [])
-          );
+          qSet(`scope_${i}`, allScopes[i] || []);
         }
 
         // แสดงข้อมูลของ Scope ปัจจุบัน (scopeID)
@@ -450,11 +495,15 @@ const AddScope = ({ scopeID }) => {
             0,
         };
         setSummaryData(updatedSummary);
-        localStorage.setItem("summaryData", JSON.stringify(updatedSummary));
+        qSet("summaryData", updatedSummary);
       }
     } catch (error) {
       console.error("❌ Error fetching data:", error);
-      message.error( isTH ? "ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง" : "Failed to load data. Please try again.");
+      message.error(
+        isTH
+          ? "ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง"
+          : "Failed to load data. Please try again."
+      );
       checkResponse.checkResponseApi(error, navigate);
     } finally {
       setLoading(false);
@@ -485,7 +534,7 @@ const AddScope = ({ scopeID }) => {
     setRecords(updatedRecords);
 
     // บันทึกข้อมูลของ Scope ปัจจุบันลง localStorage
-    localStorage.setItem(scopekey, JSON.stringify(updatedRecords));
+    qSet(scopekey, updatedRecords);
   };
 
   const handleSave = async (status) => {
@@ -497,17 +546,15 @@ const AddScope = ({ scopeID }) => {
     const quarterInputID = Number(emissionData.quarterInputID) || null;
 
     // เก็บข้อมูล Scope ปัจจุบันลง localStorage ก่อน
-    localStorage.setItem(`scope_${scopeID}`, JSON.stringify(records));
+    qSet(`scope_${scopeID}`, records);
 
     // โหลดข้อมูลของทุก Scope (1-5)
     const allScopesRecords = Array.from({ length: 5 }, (_, i) => i + 1).flatMap(
       (id) =>
-        (JSON.parse(localStorage.getItem(`scope_${id}`)) || []).map(
-          (record) => ({
-            ...record,
-            scopeID: id, // ใส่ scopeID ที่ถูกต้อง
-          })
-        )
+        qGet(`scope_${id}`, []).map((record) => ({
+          ...record,
+          scopeID: id, // ใส่ scopeID ที่ถูกต้อง
+        }))
     );
 
     // แปลงข้อมูลให้ตรงกับ API
@@ -532,16 +579,12 @@ const AddScope = ({ scopeID }) => {
     setLoadingSave(true);
 
     try {
-      const response = await axios.post(
-        `${BASE_URL}/activity/history`,
-        body,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const response = await axios.post(`${BASE_URL}/activity/history`, body, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
       if (response?.data?.statusCode === 200) {
         const responseData = response.data.data;
@@ -552,27 +595,21 @@ const AddScope = ({ scopeID }) => {
           responseData.activityList.forEach((scope) => {
             updatedScopeData[scope.scopeID] = scope.percentOfData;
           });
-          localStorage.setItem(
-            "scopePercentages",
-            JSON.stringify(updatedScopeData)
-          );
+          qSet("scopePercentages", updatedScopeData);
+
           return updatedScopeData;
         });
 
         process.setProgress();
 
         // อัปเดต Emission Data
-        const existingEmissionData =
-          JSON.parse(localStorage.getItem("emissionData")) || {};
+        const existingEmissionData = qGet("emissionData", {});
         const updatedEmissionData = {
           ...existingEmissionData,
           historyID: responseData.historyID ?? 0,
           statusID: responseData.statusID,
         };
-        localStorage.setItem(
-          "emissionData",
-          JSON.stringify(updatedEmissionData)
-        );
+        qSet("emissionData", updatedEmissionData);
         setEmissionData(updatedEmissionData);
 
         // อัปเดต Summary Data (รวมทุก Scope)
@@ -582,7 +619,7 @@ const AddScope = ({ scopeID }) => {
           totalCO2Reduction: responseData.totalCO2Reduction ?? 0,
         };
         setSummaryData(updatedSummaryData);
-        localStorage.setItem("summaryData", JSON.stringify(updatedSummaryData));
+        qSet("summaryData", updatedSummaryData);
 
         await fetchData();
         // message.success("Saved successfully!");
@@ -593,11 +630,11 @@ const AddScope = ({ scopeID }) => {
     } catch (error) {
       console.error("Error saving data:", error);
       message.error(
-  error?.response?.data?.message ||
-    (isTH
-      ? "ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่อีกครั้ง"
-      : "Failed to save data. Please try again.")
-);
+        error?.response?.data?.message ||
+          (isTH
+            ? "ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่อีกครั้ง"
+            : "Failed to save data. Please try again.")
+      );
     } finally {
       setLoadingSave(false);
     }
@@ -605,40 +642,36 @@ const AddScope = ({ scopeID }) => {
 
   const handleUpdate = async (status) => {
     if (!token) {
-     message.warning(
-  isTH
-    ? "ไม่พบ Token กรุณาเข้าสู่ระบบอีกครั้ง"
-    : "No token found. Please login first."
-);
+      message.warning(
+        isTH
+          ? "ไม่พบ Token กรุณาเข้าสู่ระบบอีกครั้ง"
+          : "No token found. Please login first."
+      );
       return;
     }
 
-    const emission = JSON.parse(localStorage.getItem("emissionData"));
-
+    const emission = qGet("emissionData", {});
     const historyID = Number(emission?.historyID) || null;
     if (!historyID) {
       message.error(
-  isTH
-    ? "ไม่พบ historyID กรุณาบันทึกข้อมูลก่อน"
-    : "No historyID found. Please save data first."
-);
+        isTH
+          ? "ไม่พบ historyID กรุณาบันทึกข้อมูลก่อน"
+          : "No historyID found. Please save data first."
+      );
       return;
     }
 
     // ใช้ scopeID จาก props เพื่อดึงข้อมูลของ Scope ปัจจุบัน
-    const currentScopeRecords =
-      JSON.parse(localStorage.getItem(scopekey)) || [];
+    const currentScopeRecords = qGet(scopekey, []);
 
     // โหลดข้อมูลของ Scope 1-5 (ไม่ต้องกำหนดทีละตัว)
     const otherScopesRecords = Array.from({ length: 5 }, (_, i) => i + 1)
       .filter((id) => id !== scopeID) // ข้าม scope ปัจจุบัน
       .flatMap((id) =>
-        (JSON.parse(localStorage.getItem(`scope_${id}`)) || []).map(
-          (record) => ({
-            ...record,
-            scopeID: id, // ใช้ `id` ที่ถูกต้อง
-          })
-        )
+        qGet(`scope_${id}`, []).map((record) => ({
+          ...record,
+          scopeID: id, // ใช้ `id` ที่ถูกต้อง
+        }))
       );
 
     // รวมข้อมูลทั้งหมดของ scope ปัจจุบัน + scope อื่นๆ
@@ -670,16 +703,12 @@ const AddScope = ({ scopeID }) => {
     setLoadingSave(true);
 
     try {
-      const response = await axios.put(
-        `${BASE_URL}/activity/history`,
-        body,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const response = await axios.put(`${BASE_URL}/activity/history`, body, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
       if (response?.data?.statusCode === 200) {
         const responseData = response.data.data;
@@ -690,27 +719,20 @@ const AddScope = ({ scopeID }) => {
           responseData.activityList.forEach((scope) => {
             updatedScopeData[scope.scopeID] = scope.percentOfData;
           });
-          localStorage.setItem(
-            "scopePercentages",
-            JSON.stringify(updatedScopeData)
-          );
+          qSet("scopePercentages", updatedScopeData);
           return updatedScopeData;
         });
 
         process.setProgress();
 
         // อัปเดต Emission Data
-        const existingEmissionData =
-          JSON.parse(localStorage.getItem("emissionData")) || {};
+        const existingEmissionData = qGet("emissionData", {});
         const updatedEmissionData = {
           ...existingEmissionData,
           historyID: responseData.historyID ?? 0,
           statusID: responseData.statusID,
         };
-        localStorage.setItem(
-          "emissionData",
-          JSON.stringify(updatedEmissionData)
-        );
+        qSet("emissionData", updatedEmissionData);
         setEmissionData(updatedEmissionData);
 
         // อัปเดต Summary Data เฉพาะ Scope ปัจจุบัน
@@ -722,10 +744,14 @@ const AddScope = ({ scopeID }) => {
           totalCO2Intentsity: scopeSummary.totalCO2Intentsity ?? 0,
           totalCO2Reduction: scopeSummary.totalCO2Reduction ?? 0,
         });
-        localStorage.setItem("summaryData", JSON.stringify(scopeSummary));
+        qSet("summaryData", {
+          totalCO2Emission: scopeSummary.totalCO2Emission ?? 0,
+          totalCO2Intentsity: scopeSummary.totalCO2Intentsity ?? 0,
+          totalCO2Reduction: scopeSummary.totalCO2Reduction ?? 0,
+        });
 
         // เซฟข้อมูล Scope ปัจจุบันใน Local Storage
-        localStorage.setItem(scopekey, JSON.stringify(currentScopeRecords));
+        qSet(scopekey, currentScopeRecords);
 
         await fetchData();
         // message.success("Saved successfully!");
@@ -736,38 +762,34 @@ const AddScope = ({ scopeID }) => {
     } catch (error) {
       console.error("❌ Error updating data:", error);
       message.error(
-  error?.response?.data?.message ||
-    (isTH
-      ? "อัปเดตข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
-      : "Failed to update data. Please try again.")
-);
+        error?.response?.data?.message ||
+          (isTH
+            ? "อัปเดตข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
+            : "Failed to update data. Please try again.")
+      );
     } finally {
       setLoadingSave(false);
     }
   };
 
   const isField30_1Complete = () => {
-    const scope4Records = JSON.parse(localStorage.getItem("scope_4")) || [];
+    const scope4Records = qGet("scope_4", []);
     const record29_1 = scope4Records.find((record) => record.id === "30.1");
     if (!record29_1) return false;
-  
+
     return months.every(
       (month) => record29_1[month.name] && record29_1[month.name].trim() !== ""
     );
   };
-  
 
   const handleSaveOrUpdate = async (type) => {
-
-    if (type === "submit" && !isField30_1Complete() ) {
-      message.error(
-        t("activity30_1_required")
-      );
+    if (type === "submit" && !isField30_1Complete()) {
+      message.error(t("activity30_1_required"));
       return;
     }
 
     const status = type === "save" ? 2 : 3;
-    const emission = JSON.parse(localStorage.getItem("emissionData")) || {};
+    const emission = qGet("emissionData", {});
 
     try {
       if (emission?.historyID) {
@@ -788,89 +810,86 @@ const AddScope = ({ scopeID }) => {
     } catch (error) {
       console.error("Error in handleSaveOrUpdate:", error);
       message.error(
-  isTH
-    ? "บันทึกหรืออัปเดตข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
-    : "Failed to save or update. Please try again."
-);
+        isTH
+          ? "บันทึกหรืออัปเดตข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
+          : "Failed to save or update. Please try again."
+      );
     }
   };
 
   const handleLogoutClick = async () => {
-  if (isLoggingOut) {
-    message.warning(
-  isTH
-    ? "กำลังออกจากระบบ... กรุณารอสักครู่"
-    : "Logging out... Please wait."
-);
-    return;
-  }
-
-  const token = localStorage.getItem("token");
-  const hospitalCode = localStorage.getItem("hospitalCode");
-  const quarterInputID = localStorage.getItem("quarterInputID");
-
-  if (!token) {
-   message.warning(
-  isTH
-    ? "ไม่พบ Token กรุณาเข้าสู่ระบบก่อน"
-    : "No token found. Please login first."
-);
-    return;
-  }
-
-  try {
-    setIsLoggingOut(true);
-
-    // ลบ session ก่อน logout
-    if (hospitalCode && quarterInputID) {
-      try {
-        await axios.delete(
-          `${BASE_URL}/staff/auth/session/${hospitalCode}/${quarterInputID}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-      } catch (err) {
-        console.warn("Failed to delete session before logout:", err);
-      }
+    if (isLoggingOut) {
+      message.warning(
+        isTH
+          ? "กำลังออกจากระบบ... กรุณารอสักครู่"
+          : "Logging out... Please wait."
+      );
+      return;
     }
 
-    // ดำเนินการ logout ปกติ
-    const response = await axios.post(
-      `${BASE_URL}/staff/auth/logout`,
-      {},
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    const token = localStorage.getItem("token");
+    const hospitalCode = localStorage.getItem("hospitalCode");
+    const quarterInputID = localStorage.getItem("quarterInputID");
 
-    if (response?.data?.statusCode === 200) {
-      message.success("Logout successful!");
-    } else {
-      throw new Error(response?.data?.message || "Logout failed.");
+    if (!token) {
+      message.warning(
+        isTH
+          ? "ไม่พบ Token กรุณาเข้าสู่ระบบก่อน"
+          : "No token found. Please login first."
+      );
+      return;
     }
-  } catch (error) {
-    console.error("Error during logout:", error);
-    message.error(
-      error?.response?.data?.message || "Logout failed. Please try again."
-    );
-  } finally {
-    // 🧹 เคลียร์ทุกอย่างหลัง logout
-    localStorage.clear();
-    navigate("/");
-    setIsLoggingOut(false);
-  }
-};
 
+    try {
+      setIsLoggingOut(true);
+
+      // ลบ session ก่อน logout
+      if (hospitalCode && quarterInputID) {
+        try {
+          await axios.delete(
+            `${BASE_URL}/staff/auth/session/${hospitalCode}/${quarterInputID}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+        } catch (err) {
+          console.warn("Failed to delete session before logout:", err);
+        }
+      }
+
+      // ดำเนินการ logout ปกติ
+      const response = await axios.post(
+        `${BASE_URL}/staff/auth/logout`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response?.data?.statusCode === 200) {
+        message.success("Logout successful!");
+      } else {
+        throw new Error(response?.data?.message || "Logout failed.");
+      }
+    } catch (error) {
+      console.error("Error during logout:", error);
+      message.error(
+        error?.response?.data?.message || "Logout failed. Please try again."
+      );
+    } finally {
+      // 🧹 เคลียร์ทุกอย่างหลัง logout
+      localStorage.clear();
+      navigate("/");
+      setIsLoggingOut(false);
+    }
+  };
 
   const showConfirmModal = () => {
     if (!isField30_1Complete()) {
-      message.error(
-       t("activity30_1_required")
-      );
+      message.error(t("activity30_1_required"));
       return;
     }
     setIsModalVisible(true);
@@ -885,8 +904,6 @@ const AddScope = ({ scopeID }) => {
     setIsModalVisible(false);
   };
 
-
-
   return (
     <div className="main-bg">
       <div className="menu-toggle" id="show-menu-bar">
@@ -898,7 +915,7 @@ const AddScope = ({ scopeID }) => {
         <div className="bg-overlay">
           <img src="/images/bg-nav.png" alt="" />
         </div>
-         <MenuPage handleLogoutClick={handleLogoutClick} />
+        <MenuPage handleLogoutClick={handleLogoutClick} />
         {loadingSave && (
           <div className="loading-overlay">
             <div className="loading-content">
@@ -1163,10 +1180,13 @@ const AddScope = ({ scopeID }) => {
                   </div>
                   <div className="summary">
                     <p className="total">
-                      {(summaryData?.totalCO2Intentsity ?? 0).toLocaleString(undefined, {
-      minimumFractionDigits: 5,
-      maximumFractionDigits: 5,
-    })}
+                      {(summaryData?.totalCO2Intentsity ?? 0).toLocaleString(
+                        undefined,
+                        {
+                          minimumFractionDigits: 5,
+                          maximumFractionDigits: 5,
+                        }
+                      )}
                     </p>
                     <p className="unit">{"TCO2eq/visit"}</p>
                   </div>
@@ -1178,10 +1198,13 @@ const AddScope = ({ scopeID }) => {
                   </div>
                   <div className="summary">
                     <p className="total">
-                    {(summaryData?.totalCO2Reduction ?? 0).toLocaleString(undefined, {
-      minimumFractionDigits: 5,
-      maximumFractionDigits: 5,
-    })}
+                      {(summaryData?.totalCO2Reduction ?? 0).toLocaleString(
+                        undefined,
+                        {
+                          minimumFractionDigits: 5,
+                          maximumFractionDigits: 5,
+                        }
+                      )}
                     </p>
                     <p className="unit">{"TCO₂eq"}</p>
                   </div>
@@ -1341,25 +1364,33 @@ const AddScope = ({ scopeID }) => {
                               </td>
                             ))}
                             <td className="text-center">
-                              {(record.GHGValue ?? 0) === 0.00
+                              {(record.GHGValue ?? 0) === 0.0
                                 ? ""
-                                : (record.GHGValue ?? 0).toLocaleString(undefined, {
+                                : (record.GHGValue ?? 0).toLocaleString(
+                                    undefined,
+                                    {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    }
+                                  )}
+                            </td>
+                            <td className="text-center">
+                              {(record.GHGPerActivityTotal ?? 0) === 0.0
+                                ? ""
+                                : (
+                                    record.GHGPerActivityTotal ?? 0
+                                  ).toLocaleString(undefined, {
                                     minimumFractionDigits: 2,
                                     maximumFractionDigits: 2,
                                   })}
                             </td>
                             <td className="text-center">
-                              {(record.GHGPerActivityTotal ?? 0) === 0.00
+                              {(record.estimatedAnnualResourceUseTotal ?? 0) ===
+                              0.0
                                 ? ""
-                                : (record.GHGPerActivityTotal ?? 0).toLocaleString(undefined, {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
-                                  })}
-                            </td>
-                            <td className="text-center">
-                              {(record.estimatedAnnualResourceUseTotal ?? 0) === 0.00
-                                ? ""
-                                : (record.estimatedAnnualResourceUseTotal ?? 0).toLocaleString(undefined, {
+                                : (
+                                    record.estimatedAnnualResourceUseTotal ?? 0
+                                  ).toLocaleString(undefined, {
                                     minimumFractionDigits: 2,
                                     maximumFractionDigits: 2,
                                   })}
@@ -1403,19 +1434,19 @@ const AddScope = ({ scopeID }) => {
             )}
 
             <button
-  type="button"
-  className="btn btn-theme-green btn-save"
-  onClick={() => {
-    if ([1, 2, 3].includes(roleID)) {
-      showConfirmModal();
-    } else {
-      message.warning(t("You do not have permission to submit."));
-    }
-  }}
-  disabled={isDisabled || ![1, 2, 3].includes(roleID)}
->
-  {t("submit")}
-</button>
+              type="button"
+              className="btn btn-theme-green btn-save"
+              onClick={() => {
+                if ([1, 2, 3].includes(roleID)) {
+                  showConfirmModal();
+                } else {
+                  message.warning(t("You do not have permission to submit."));
+                }
+              }}
+              disabled={isDisabled || ![1, 2, 3].includes(roleID)}
+            >
+              {t("submit")}
+            </button>
 
             <button
               type="button"
@@ -1520,7 +1551,7 @@ const AddScope = ({ scopeID }) => {
         cancelText={t("Cancel")}
         styles={{
           body: {
-            fontSize: "16px"
+            fontSize: "16px",
           },
         }}
       >

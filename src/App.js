@@ -18,9 +18,9 @@ import ForgotPassword from "./components/ForgetPassword/ForgotPassword";
 import ResetPassword from "./components/ForgetPassword/ResetPassword";
 import FirstTimePassword from "./components/ForgetPassword/FirstTimePassword";
 import UnlockAccount from "./components/AccountManagement/UnlockAccount";
-import ExportData from "./components/Report/ExportData";
 import ResendMail from "./components/ResendMail/ResendMail";
 import ManageData from "./components/ManageData/ManageData";
+import ExportStatus from "./components/Report/ExportStatus";
 
 function App() {
   return (
@@ -49,7 +49,7 @@ function App() {
             element={<FirstTimePassword />}
           />
           <Route path="/unlock-account" element={<UnlockAccount />} />
-          <Route path="/export-data" element={<ExportData />} />
+          <Route path="/export-status" element={<ExportStatus />} />
           <Route path="/resend-mail" element={<ResendMail />} />
           <Route path="/manage-data" element={<ManageData />} />
         </Routes>

@@ -377,7 +377,8 @@ text-transform: uppercase;
 .menu-bar {
   width: 410px;
   min-width: 410px;
-  height: 100vh;
+    min-height: 100vh;   /* ✅ จาก height → min-height */
+  height: auto; 
   float: left;
   padding: 44px 0px 0px 26px;
   position: relative;

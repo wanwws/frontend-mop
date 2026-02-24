@@ -41,6 +41,7 @@ const StaffRequests = () => {
     VIEW_LIST: [1, 2, 3], // GET /staff/request
     ADD: [1, 2, 3], // POST /staff/request
     APPROVE: [1, 2, 3], // POST /staff/request/approve
+    EDIT: [1, 2],
   };
 
   const hasPermission = (action) => PERMISSIONS[action]?.includes(roleID);
@@ -48,6 +49,7 @@ const StaffRequests = () => {
   const CAN_VIEW_LIST = hasPermission("VIEW_LIST");
   const CAN_ADD = hasPermission("ADD");
   const CAN_APPROVE = hasPermission("APPROVE");
+  const CAN_EDIT = hasPermission("EDIT");
 
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState([]);
@@ -141,7 +143,7 @@ const StaffRequests = () => {
   const filtered = rows.filter((r) => {
     const okStatus =
       statusFilter === "all" ? true : String(r.status) === statusFilter;
-    const text = `${r.username ?? ""} ${r.agencyName ?? ""} ${
+    const text = `${r.username ?? ""} ${r.agencyName ?? ""}   ${r.agencyCode ?? ""} ${
       r.provinceName ?? ""
     } ${r.districtName ?? ""}`.toLowerCase();
     const okQ = q ? text.includes(q.toLowerCase()) : true;
@@ -182,7 +184,7 @@ const StaffRequests = () => {
       },
     ];
 
-    if (CAN_APPROVE) {
+    if (CAN_EDIT) {
       if (rec.status === 1) {
         // ✅ Approved → เพิ่มปุ่ม Edit
         items.push({ type: "divider" });
@@ -219,6 +221,7 @@ const StaffRequests = () => {
               email: rec.email || rec.username,
             });
             setEditData(rec);
+            setSelectedAccess(rec.accessLevelID);
             setEditOpen(true);
           },
         });
@@ -779,6 +782,123 @@ const StaffRequests = () => {
   const isGrey = (field) =>
     !!(selectedAccess && accessRules[selectedAccess]?.grey.includes(field));
 
+  const clearAccessLevelDependentsEdit = () => {
+    editForm.setFieldsValue({
+      zoneHealthCode: undefined,
+      provinceCode: undefined,
+      districtCode: undefined,
+      subDistrictCode: undefined,
+      agencyCode: undefined,
+      agencyName: undefined,
+    });
+
+    setProvinces([]);
+    setDistricts([]);
+    setSubDistricts([]);
+  };
+
+  const fetchAgencyNameByCodeEdit = async (code) => {
+    const agencyCode = (code || "").trim();
+    if (!agencyCode) {
+      editForm.setFieldsValue({
+        agencyName: undefined,
+        zoneHealthCode: undefined,
+        provinceCode: undefined,
+        districtCode: undefined,
+        subDistrictCode: undefined,
+      });
+      setProvinces([]);
+      setDistricts([]);
+      setSubDistricts([]);
+      return;
+    }
+
+    setLoadingAgency(true);
+    try {
+      const res = await axios.get(`${BASE_URL}/master/agency`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+        params: { agencyCode },
+      });
+
+      let agency = null;
+      const data = res?.data?.data;
+      if (Array.isArray(data)) agency = data[0] || null;
+      else if (data && typeof data === "object") agency = data;
+
+      if (!agency) {
+        message.warning("ไม่พบรหัสหน่วยงานนี้");
+        editForm.setFieldsValue({
+          agencyName: undefined,
+          zoneHealthCode: undefined,
+          provinceCode: undefined,
+          districtCode: undefined,
+          subDistrictCode: undefined,
+        });
+        setProvinces([]);
+        setDistricts([]);
+        setSubDistricts([]);
+        return;
+      }
+
+      const zone = String(getZoneFromAgency(agency) ?? "");
+
+      editForm.setFieldsValue({
+        agencyName: agency.agencyName || agency.nameTH || agency.nameEN || "",
+        zoneHealthCode: isGrey("zoneHealthCode")
+          ? undefined
+          : zone || undefined,
+      });
+
+      const provinceCode =
+        agency.provinceCode || agency.provinceID || undefined;
+      if (!isGrey("provinceCode") && zone && provinceCode) {
+        await fetchProvinces(zone, {
+          provinceCode,
+          provinceName: agency.provinceName,
+        });
+        editForm.setFieldsValue({ provinceCode });
+      }
+
+      const districtCode = agency.districtCode || undefined;
+      if (!isGrey("districtCode") && provinceCode && districtCode) {
+        await fetchDistricts(provinceCode, {
+          districtCode,
+          districtName: agency.districtName,
+        });
+        editForm.setFieldsValue({ districtCode });
+      }
+
+      const subDistrictCode = agency.subDistrictCode || undefined;
+      if (
+        !isGrey("subDistrictCode") &&
+        provinceCode &&
+        districtCode &&
+        subDistrictCode
+      ) {
+        await fetchSubDistricts(provinceCode, districtCode, {
+          subDistrictCode,
+          subDistrictName: agency.subDistrictName,
+        });
+        editForm.setFieldsValue({ subDistrictCode });
+      }
+    } catch (e) {
+      console.error(e);
+      message.error("ค้นหาหน่วยงานไม่สำเร็จ");
+      editForm.setFieldsValue({
+        agencyName: undefined,
+        zoneHealthCode: undefined,
+        provinceCode: undefined,
+        districtCode: undefined,
+        subDistrictCode: undefined,
+      });
+      setProvinces([]);
+      setDistricts([]);
+      setSubDistricts([]);
+    } finally {
+      setLoadingAgency(false);
+    }
+  };
+
   return (
     <div className="main-bg">
       <div className="menu-toggle" id="show-menu-bar">
@@ -869,7 +989,7 @@ const StaffRequests = () => {
                     bordered
                     scroll={{ x: "max-content" }}
                     sticky
-                     style={{ whiteSpace: "nowrap" }}
+                    style={{ whiteSpace: "nowrap" }}
                   />
                 ) : (
                   <div
@@ -1080,13 +1200,8 @@ const StaffRequests = () => {
               </Form.Item>
 
               {/* Access Level */}
-              <Form.Item
-                name="accessLevelID"
-                label={t("Access Level")}
-                rules={[{ required: true, message: "Required" }]}
-              >
+              <Form.Item name="accessLevelID" label={t("Access Level")}>
                 <Select
-                  placeholder="Select access level"
                   loading={accessLoading}
                   showSearch
                   optionFilterProp="label"
@@ -1094,42 +1209,97 @@ const StaffRequests = () => {
                     value: lv.accessLevelID,
                     label: lv.description,
                   }))}
+                  onChange={(val) => {
+                    setSelectedAccess(val);
+
+                    // เคลียร์ข้อมูลเก่าทั้งหมด
+                    clearAccessLevelDependentsEdit();
+
+                    // เคลียร์ options state
+                    setProvinces([]);
+                    setDistricts([]);
+                    setSubDistricts([]);
+
+                    // เคลียร์ค่าที่เคย preload จาก rec
+                    editForm.setFieldsValue({
+                      provinceCode: undefined,
+                      districtCode: undefined,
+                      subDistrictCode: undefined,
+                    });
+                  }}
                 />
               </Form.Item>
 
               {/* Agency */}
               <Form.Item name="agencyCode" label={t("Agency Code")}>
-                <Input />
+                <Input
+                  disabled={isGrey("agencyCode")}
+                  onBlur={(e) => {
+                    if (!isGrey("agencyCode")) {
+                      fetchAgencyNameByCodeEdit(e.target.value);
+                    }
+                  }}
+                />
               </Form.Item>
+
               <Form.Item name="agencyName" label={t("Agency Name")}>
-                <Input />
+                <Input
+                  disabled={isGrey("agencyName")}
+                  readOnly={
+                    !isGrey("agencyName") &&
+                    !!editForm.getFieldValue("agencyCode")
+                  }
+                />
               </Form.Item>
 
               {/* Zone / Province / District / Subdistrict */}
               <Form.Item name="zoneHealthCode" label={t("Zone Health Code")}>
-                <Input />
+                <Input
+                  disabled={isGrey("zoneHealthCode")}
+                  readOnly={
+                    !isGrey("zoneHealthCode") &&
+                    !!editForm.getFieldValue("agencyCode")
+                  }
+                  onBlur={(e) => {
+                    const val = e.target.value?.trim();
+                    if (val) fetchProvinces(val);
+                  }}
+                />
               </Form.Item>
+
               <Form.Item name="provinceCode" label={t("Province")}>
                 <Select
                   options={provinces.map((p) => ({
                     value: p.provinceCode,
-                    label: p.nameTH, // ✅ แสดงชื่อจังหวัด
+                    label: p.nameTH,
                   }))}
+                  disabled={isGrey("provinceCode")}
+                  onChange={(val) => fetchDistricts(val)}
                 />
               </Form.Item>
+
               <Form.Item name="districtCode" label={t("District")}>
                 <Select
+                  disabled={isGrey("districtCode")}
                   options={districts.map((d) => ({
                     value: d.districtCode,
-                    label: d.nameTH, // ✅ แสดงชื่ออำเภอ
+                    label: d.nameTH,
                   }))}
+                  onChange={(val) =>
+                    fetchSubDistricts(
+                      editForm.getFieldValue("provinceCode"),
+                      val
+                    )
+                  }
                 />
               </Form.Item>
+
               <Form.Item name="subDistrictCode" label={t("Subdistrict")}>
                 <Select
+                  disabled={isGrey("subDistrictCode")}
                   options={subDistricts.map((s) => ({
                     value: s.subDistrictCode,
-                    label: s.nameTH, // ✅ แสดงชื่อตำบล
+                    label: s.nameTH,
                   }))}
                 />
               </Form.Item>
@@ -1434,60 +1604,60 @@ const StaffRequests = () => {
           </div>
         </Form>
       </Modal>
-       <footer>
-              <div className="contact">
-                <p
-                  onClick={() => window.open("/privacy-policy", "_blank")}
-                  style={{ cursor: "pointer" }}
-                >
-                  {t("Privacy Policy")}
-                </p>
-                <p
-                  onClick={() => window.open("/terms-of-use", "_blank")}
-                  style={{ cursor: "pointer" }}
-                >
-                  {t("Terms of use")}
-                </p>
-                <p
-                  onClick={() => setIsContactModalOpen(true)}
-                  style={{ cursor: "pointer" }}
-                >
-                  {t("Contact Information")}
-                </p>
-              </div>
-              <p className="footer">Copyright © by Ministry of Public Health 2025</p>
-            </footer>
-      
-            <Modal
-              open={isContactModalOpen}
-              onCancel={() => setIsContactModalOpen(false)}
-              footer={null}
-              centered
-              title={
-                <span style={{ fontSize: 20, fontWeight: 600 }}>
-                  {t("Contact Information")}
-                </span>
-              }
-              styles={{
-                body: { background: "#BCE1DD", padding: 20, borderRadius: 10 },
-              }}
-            >
-              <p style={{ fontSize: 16 }}>
-                <b>
-                  {t(
-                    "Service Support System Development Group, Health Administration Division"
-                  )}
-                </b>
-                <br />
-                {t(
-                  "88/22 Moo 4 Building 3, 5th Floor, Office of the Permanent Secretary of Ministry of Public Health, Tiwanon Road, Talat Khwan, Mueang Nonthaburi, Nonthaburi 11000"
-                )}
-                <br />
-                {t("Tel: +660-2590-1635 | Fax: +660-2590-1641")}
-                <br />
-                Email: <a href="mailto:env.moph2@gmail.com">env.moph2@gmail.com</a>
-              </p>
-            </Modal>
+      <footer>
+        <div className="contact">
+          <p
+            onClick={() => window.open("/privacy-policy", "_blank")}
+            style={{ cursor: "pointer" }}
+          >
+            {t("Privacy Policy")}
+          </p>
+          <p
+            onClick={() => window.open("/terms-of-use", "_blank")}
+            style={{ cursor: "pointer" }}
+          >
+            {t("Terms of use")}
+          </p>
+          <p
+            onClick={() => setIsContactModalOpen(true)}
+            style={{ cursor: "pointer" }}
+          >
+            {t("Contact Information")}
+          </p>
+        </div>
+        <p className="footer">Copyright © by Ministry of Public Health 2025</p>
+      </footer>
+
+      <Modal
+        open={isContactModalOpen}
+        onCancel={() => setIsContactModalOpen(false)}
+        footer={null}
+        centered
+        title={
+          <span style={{ fontSize: 20, fontWeight: 600 }}>
+            {t("Contact Information")}
+          </span>
+        }
+        styles={{
+          body: { background: "#BCE1DD", padding: 20, borderRadius: 10 },
+        }}
+      >
+        <p style={{ fontSize: 16 }}>
+          <b>
+            {t(
+              "Service Support System Development Group, Health Administration Division"
+            )}
+          </b>
+          <br />
+          {t(
+            "88/22 Moo 4 Building 3, 5th Floor, Office of the Permanent Secretary of Ministry of Public Health, Tiwanon Road, Talat Khwan, Mueang Nonthaburi, Nonthaburi 11000"
+          )}
+          <br />
+          {t("Tel: +660-2590-1635 | Fax: +660-2590-1641")}
+          <br />
+          Email: <a href="mailto:env.moph2@gmail.com">env.moph2@gmail.com</a>
+        </p>
+      </Modal>
     </div>
   );
 };

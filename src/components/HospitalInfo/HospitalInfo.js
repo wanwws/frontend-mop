@@ -15,7 +15,8 @@ const HospitalInfo = () => {
   const location = useLocation();
 
   const recordData =
-    location.state || JSON.parse(localStorage.getItem("emissionData")) || {};
+    location.state || JSON.parse(sessionStorage.getItem("emissionData")) || {};
+
   const [quarterInputID, setQuarterInputID] = useState(
     recordData.quarterInputID || ""
   );
@@ -70,10 +71,11 @@ const HospitalInfo = () => {
 
         // ✅ สร้าง session สำเร็จ
         if (res.data.statusCode === 200) {
-          localStorage.setItem("quarterInputID", quarterInputID);
-          localStorage.setItem("hospitalCode", hospitalCode);
-          localStorage.setItem(
-            "currentSession",
+          sessionStorage.setItem("quarterInputID", quarterInputID);
+
+          // แยก session ต่อ quarter ต่อ tab
+          sessionStorage.setItem(
+            `session_${quarterInputID}`,
             JSON.stringify({ hospitalCode, quarterInputID })
           );
         }
@@ -127,9 +129,9 @@ const HospitalInfo = () => {
                   </b>{" "}
                   ({username})
                 </p>
-      <p style={{ marginTop: 8 }}>
-        <p>SessionID:</p> {sessionID}
-      </p>
+                <p style={{ marginTop: 8 }}>
+                  <p>SessionID:</p> {sessionID}
+                </p>
                 <p style={{ marginTop: 12 }}>
                   กรุณารอให้ผู้ใช้งานรายนี้ออกจากระบบก่อน
                   <br />
@@ -171,7 +173,7 @@ const HospitalInfo = () => {
     ];
 
     keysToRemove.forEach((key) => {
-      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
     });
   }, []);
 
@@ -269,86 +271,84 @@ const HospitalInfo = () => {
     fetchScopePercentages();
   }, [quarterInputID]);
 
-useEffect(() => {
-  const handleBeforeUnload = () => {
-    // ปิดแท็บหรือรีเฟรช browser
-    sendCloseSession();
-  };
-
-  // ผูก event เวลา browser ปิดหน้า/รีเฟรช
-  window.addEventListener("beforeunload", handleBeforeUnload);
-
-  return () => {
-    // ลบ event listener ตอน component ถูก unmount
-    window.removeEventListener("beforeunload", handleBeforeUnload);
-    // ตรวจ path ปัจจุบัน เพื่อเช็คว่า navigate ไปไหนต่อ
-    const nextUrl = window.location.pathname;
-    // หน้าที่ไม่ควรลบ session (ภายใน workflow)
-    const safePaths = ["/add-scope", "/add-record"];
-    // ✅ ตรวจว่า URL ปัจจุบันเริ่มด้วย safe path หรือไม่
-    const isSafe = safePaths.some((path) => nextUrl.startsWith(path));
-
-    // ❌ ถ้าไม่ใช่ safe path แปลว่าออกนอกระบบ เช่น logout / ปิดแท็บ
-    if (!isSafe) {
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // ปิดแท็บหรือรีเฟรช browser
       sendCloseSession();
-    }
-  };
-}, []);
+    };
 
+    // ผูก event เวลา browser ปิดหน้า/รีเฟรช
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      // ลบ event listener ตอน component ถูก unmount
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      // ตรวจ path ปัจจุบัน เพื่อเช็คว่า navigate ไปไหนต่อ
+      const nextUrl = window.location.pathname;
+      // หน้าที่ไม่ควรลบ session (ภายใน workflow)
+      const safePaths = ["/add-scope", "/add-record"];
+      // ✅ ตรวจว่า URL ปัจจุบันเริ่มด้วย safe path หรือไม่
+      const isSafe = safePaths.some((path) => nextUrl.startsWith(path));
+
+      // ❌ ถ้าไม่ใช่ safe path แปลว่าออกนอกระบบ เช่น logout / ปิดแท็บ
+      if (!isSafe) {
+        sendCloseSession();
+      }
+    };
+  }, []);
 
   const handleLogoutClick = async () => {
-  const token = getToken();
-  const hospitalCode = localStorage.getItem("hospitalCode");
-  const quarterInputID = localStorage.getItem("quarterInputID");
+    const token = getToken();
+    const hospitalCode = localStorage.getItem("hospitalCode");
+    const quarterInputID = sessionStorage.getItem("quarterInputID");
 
-  if (!token) {
-    message.warning("No token found. Please login first.");
-    return;
-  }
-
-  try {
-    if (hospitalCode && quarterInputID) {
-      try {
-        await axios.delete(
-          `${BASE_URL}/staff/auth/session/${hospitalCode}/${quarterInputID}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        console.log("✅ Session deleted successfully before logout");
-      } catch (err) {
-        console.warn("⚠️ Failed to delete session before logout:", err);
-      }
+    if (!token) {
+      message.warning("No token found. Please login first.");
+      return;
     }
-    await axios.post(
-      `${BASE_URL}/staff/auth/logout`,
-      {},
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+
+    try {
+      if (hospitalCode && quarterInputID) {
+        try {
+          await axios.delete(
+            `${BASE_URL}/staff/auth/session/${hospitalCode}/${quarterInputID}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          console.log("✅ Session deleted successfully before logout");
+        } catch (err) {
+          console.warn("⚠️ Failed to delete session before logout:", err);
+        }
       }
-    );
-    message.success("Logout successful!");
-    localStorage.clear();
-    navigate("/");
-
-  } catch (error) {
-    console.error("❌ Logout error:", error);
-    message.error(
-      error.response?.data?.message || "Logout failed. Please try again."
-    );
-  }
-};
-
+      await axios.post(
+        `${BASE_URL}/staff/auth/logout`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      message.success("Logout successful!");
+      sessionStorage.clear();
+      localStorage.clear();
+      navigate("/");
+    } catch (error) {
+      console.error("❌ Logout error:", error);
+      message.error(
+        error.response?.data?.message || "Logout failed. Please try again."
+      );
+    }
+  };
 
   const handleBack = async (e) => {
     e.preventDefault();
 
     const token = localStorage.getItem("token");
     const hospitalCode = localStorage.getItem("hospitalCode");
-    const quarterInputID = localStorage.getItem("quarterInputID");
+    const quarterInputID = sessionStorage.getItem("quarterInputID");
 
     // console.log("➡️ handleBack called:", {
     //   token,
@@ -371,8 +371,9 @@ useEffect(() => {
 
       if (res.data?.statusCode === 200) {
         // console.log("Session deleted successfully");
-        localStorage.removeItem("currentSession");
-        localStorage.removeItem("quarterInputID");
+        sessionStorage.removeItem(`session_${quarterInputID}`);
+        sessionStorage.removeItem("quarterInputID");
+
         message.success("Session deleted!");
       } else {
         message.warning(res.data?.message || "Delete session failed.");
@@ -399,32 +400,31 @@ useEffect(() => {
   };
 
   const sendCloseSession = () => {
-  const token = localStorage.getItem("token");
-  const hospitalCode = localStorage.getItem("hospitalCode");
-  const quarterInputID = localStorage.getItem("quarterInputID");
+    const token = localStorage.getItem("token");
+    const hospitalCode = localStorage.getItem("hospitalCode");
+    const quarterInputID = sessionStorage.getItem("quarterInputID");
 
-  if (!token || !hospitalCode || !quarterInputID) return;
+    if (!token || !hospitalCode || !quarterInputID) return;
 
-  const url = `${BASE_URL}/staff/auth/session/${hospitalCode}/${quarterInputID}`;
+    const url = `${BASE_URL}/staff/auth/session/${hospitalCode}/${quarterInputID}`;
 
-  try {
-    // 🟢 ใช้ fetch แบบ keepalive จะยิงได้แม้แท็บกำลังปิดอยู่
-    fetch(url, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      keepalive: true, // ✅ สำคัญสุด
-    });
+    try {
+      // 🟢 ใช้ fetch แบบ keepalive จะยิงได้แม้แท็บกำลังปิดอยู่
+      fetch(url, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        keepalive: true, // ✅ สำคัญสุด
+      });
 
-    console.log("📡 DELETE session sent before tab close");
-    localStorage.removeItem("currentSession");
-    localStorage.removeItem("quarterInputID");
-  } catch (error) {
-    console.warn("⚠️ Failed to close session automatically:", error);
-  }
-};
-
+      console.log("📡 DELETE session sent before tab close");
+      sessionStorage.removeItem(`session_${quarterInputID}`);
+      sessionStorage.removeItem("quarterInputID");
+    } catch (error) {
+      console.warn("⚠️ Failed to close session automatically:", error);
+    }
+  };
 
   return (
     <div className="main-bg">

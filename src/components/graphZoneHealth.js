@@ -28,7 +28,7 @@ const GraphZoneHealth = ({ filters, onDataLoaded, language }) => {
               language === "th"
                 ? `เขต ${item.zoneHealth}`
                 : `AH${item.zoneHealth}`,
-            value: item.sumTotalGHG,
+            value: item.percentOfTotalGHG,
           }));
           setChartData(formattedData);
           setsumAllTotalZoneHealth(response.data.data.sumAllTotalGHG || 0);

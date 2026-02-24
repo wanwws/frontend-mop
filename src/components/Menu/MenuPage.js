@@ -14,6 +14,7 @@ const MenuPage = ({ handleLogoutClick }) => {
   const canSeeSessionManagement = [1, 2].includes(roleID);
   const canSeeUnlockAccount = [1, 2].includes(roleID);
   const canSeeManageData = [1, 2].includes(roleID);
+  const canSeeExportStatus = [1, 2].includes(roleID);
 
   // ✅ path ที่อยู่ใต้ Account Management
   const underAccountPaths = [
@@ -21,14 +22,14 @@ const MenuPage = ({ handleLogoutClick }) => {
     "/session-management",
     "/account-management",
     "/staff-requests",
-    "/manage-data", 
+    "/manage-data",
     "/change-password",
   ];
   const underEmissionPaths = [
     "/emissions-record",
     "/add-record",
     "/add-scope",
-    "/export-data",
+    "/export-status",
   ];
 
   // ✅ เช็คว่าอยู่ path ไหน ถ้าใช่ → กางเมนูออกอัตโนมัติ
@@ -131,14 +132,16 @@ const MenuPage = ({ handleLogoutClick }) => {
                 </NavLink>
               </li>
 
-              <li>
-                <NavLink
-                  to="/export-data"
-                  className={({ isActive }) => (isActive ? "active" : "")}
-                >
-                  {t("Export data")}
-                </NavLink>
-              </li>
+              {canSeeExportStatus && (
+                <li>
+                  <NavLink
+                    to="/export-status"
+                    className={({ isActive }) => (isActive ? "active" : "")}
+                  >
+                    {t("Export Status")}
+                  </NavLink>
+                </li>
+              )}
             </ul>
           )}
         </li>
@@ -174,7 +177,7 @@ const MenuPage = ({ handleLogoutClick }) => {
 
           {isAccountOpen && (
             <ul className="submenu">
-               <li>
+              <li>
                 <NavLink
                   to="/account-management"
                   className={({ isActive }) => (isActive ? "active" : "")}
