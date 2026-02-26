@@ -86,7 +86,7 @@ const EditableDropdownInput = ({
           value={
             value !== "" && !isNaN(Number(value))
               ? formatNumber(value)
-              : value ?? ""
+              : (value ?? "")
           }
           onChange={(e) => {
             if (!disabled) {
@@ -143,7 +143,7 @@ const AddScope = ({ scopeID }) => {
     if (emissionData?.quarterInputID) {
       sessionStorage.setItem(
         "quarterInputID",
-        String(emissionData.quarterInputID)
+        String(emissionData.quarterInputID),
       );
     }
   }, [emissionData?.quarterInputID]);
@@ -343,7 +343,7 @@ const AddScope = ({ scopeID }) => {
       message.error(
         isTH
           ? "ดึงข้อมูลจาก Local Storage ไม่สำเร็จ"
-          : "Failed to fetch local storage data."
+          : "Failed to fetch local storage data.",
       );
     } finally {
       setLoading(false);
@@ -386,9 +386,9 @@ const AddScope = ({ scopeID }) => {
         setEmissionData(newEmissionData);
         qSet("emissionData", newEmissionData);
         if (responseData.statusID === 3) {
-  setIsDisabled(true);
-  setIsSubmitted(true);
-}
+          setIsDisabled(true);
+          setIsSubmitted(true);
+        }
 
         // ใช้ข้อมูลเดือนแบบ Array
         const dynamicMonths =
@@ -420,7 +420,7 @@ const AddScope = ({ scopeID }) => {
             // เติมค่าจาก activityValue เข้าไปให้ตรงกับเดือน
             activity.activityValue.forEach((value) => {
               const monthKey = dynamicMonths.find(
-                (m) => m.id === value.monthID
+                (m) => m.id === value.monthID,
               )?.name;
               if (monthKey) {
                 mainRecord[monthKey] = value.value ?? "";
@@ -448,7 +448,7 @@ const AddScope = ({ scopeID }) => {
                 // เติมค่าจาก `activityValue` ของ `subGroup`
                 sub.activityValue?.forEach((value) => {
                   const monthKey = dynamicMonths.find(
-                    (m) => m.id === value.monthID
+                    (m) => m.id === value.monthID,
                   )?.name;
                   if (monthKey) {
                     subRecord[monthKey] = value.value ?? "";
@@ -457,7 +457,7 @@ const AddScope = ({ scopeID }) => {
                 });
 
                 return subRecord;
-              }
+              },
             );
 
             return [mainRecord, ...subGroupRecords];
@@ -477,7 +477,7 @@ const AddScope = ({ scopeID }) => {
 
         // ใช้ค่าของ `scopeID` เพื่ออัปเดต Summary
         const scopeSummary = responseData.activityList.find(
-          (s) => s.scopeID === scopeID
+          (s) => s.scopeID === scopeID,
         );
 
         const updatedSummary = {
@@ -502,7 +502,7 @@ const AddScope = ({ scopeID }) => {
       message.error(
         isTH
           ? "ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง"
-          : "Failed to load data. Please try again."
+          : "Failed to load data. Please try again.",
       );
       checkResponse.checkResponseApi(error, navigate);
     } finally {
@@ -516,18 +516,18 @@ const AddScope = ({ scopeID }) => {
     if (id === "21.1" && value !== "") {
       // ล้างค่าของเดือนนั้นๆ ใน 21.2
       updatedRecords = updatedRecords.map((record) =>
-        record.id === "21.2" ? { ...record, [column]: "" } : record
+        record.id === "21.2" ? { ...record, [column]: "" } : record,
       );
     } else if (id === "21.2" && value !== "") {
       // ล้างค่าของเดือนนั้นๆ ใน 21.1
       updatedRecords = updatedRecords.map((record) =>
-        record.id === "21.1" ? { ...record, [column]: "" } : record
+        record.id === "21.1" ? { ...record, [column]: "" } : record,
       );
     }
 
     // อัปเดตค่าใหม่ของ input ที่กรอก
     updatedRecords = updatedRecords.map((record) =>
-      record.id === id ? { ...record, [column]: value ?? "" } : record
+      record.id === id ? { ...record, [column]: value ?? "" } : record,
     );
 
     // อัปเดต state
@@ -554,7 +554,7 @@ const AddScope = ({ scopeID }) => {
         qGet(`scope_${id}`, []).map((record) => ({
           ...record,
           scopeID: id, // ใส่ scopeID ที่ถูกต้อง
-        }))
+        })),
     );
 
     // แปลงข้อมูลให้ตรงกับ API
@@ -633,7 +633,7 @@ const AddScope = ({ scopeID }) => {
         error?.response?.data?.message ||
           (isTH
             ? "ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่อีกครั้ง"
-            : "Failed to save data. Please try again.")
+            : "Failed to save data. Please try again."),
       );
     } finally {
       setLoadingSave(false);
@@ -645,7 +645,7 @@ const AddScope = ({ scopeID }) => {
       message.warning(
         isTH
           ? "ไม่พบ Token กรุณาเข้าสู่ระบบอีกครั้ง"
-          : "No token found. Please login first."
+          : "No token found. Please login first.",
       );
       return;
     }
@@ -656,7 +656,7 @@ const AddScope = ({ scopeID }) => {
       message.error(
         isTH
           ? "ไม่พบ historyID กรุณาบันทึกข้อมูลก่อน"
-          : "No historyID found. Please save data first."
+          : "No historyID found. Please save data first.",
       );
       return;
     }
@@ -671,7 +671,7 @@ const AddScope = ({ scopeID }) => {
         qGet(`scope_${id}`, []).map((record) => ({
           ...record,
           scopeID: id, // ใช้ `id` ที่ถูกต้อง
-        }))
+        })),
       );
 
     // รวมข้อมูลทั้งหมดของ scope ปัจจุบัน + scope อื่นๆ
@@ -765,7 +765,7 @@ const AddScope = ({ scopeID }) => {
         error?.response?.data?.message ||
           (isTH
             ? "อัปเดตข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
-            : "Failed to update data. Please try again.")
+            : "Failed to update data. Please try again."),
       );
     } finally {
       setLoadingSave(false);
@@ -778,7 +778,7 @@ const AddScope = ({ scopeID }) => {
     if (!record29_1) return false;
 
     return months.every(
-      (month) => record29_1[month.name] && record29_1[month.name].trim() !== ""
+      (month) => record29_1[month.name] && record29_1[month.name].trim() !== "",
     );
   };
 
@@ -812,7 +812,7 @@ const AddScope = ({ scopeID }) => {
       message.error(
         isTH
           ? "บันทึกหรืออัปเดตข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
-          : "Failed to save or update. Please try again."
+          : "Failed to save or update. Please try again.",
       );
     }
   };
@@ -822,7 +822,7 @@ const AddScope = ({ scopeID }) => {
       message.warning(
         isTH
           ? "กำลังออกจากระบบ... กรุณารอสักครู่"
-          : "Logging out... Please wait."
+          : "Logging out... Please wait.",
       );
       return;
     }
@@ -835,7 +835,7 @@ const AddScope = ({ scopeID }) => {
       message.warning(
         isTH
           ? "ไม่พบ Token กรุณาเข้าสู่ระบบก่อน"
-          : "No token found. Please login first."
+          : "No token found. Please login first.",
       );
       return;
     }
@@ -850,7 +850,7 @@ const AddScope = ({ scopeID }) => {
             `${BASE_URL}/staff/auth/session/${hospitalCode}/${quarterInputID}`,
             {
               headers: { Authorization: `Bearer ${token}` },
-            }
+            },
           );
         } catch (err) {
           console.warn("Failed to delete session before logout:", err);
@@ -866,7 +866,7 @@ const AddScope = ({ scopeID }) => {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (response?.data?.statusCode === 200) {
@@ -877,7 +877,7 @@ const AddScope = ({ scopeID }) => {
     } catch (error) {
       console.error("Error during logout:", error);
       message.error(
-        error?.response?.data?.message || "Logout failed. Please try again."
+        error?.response?.data?.message || "Logout failed. Please try again.",
       );
     } finally {
       // 🧹 เคลียร์ทุกอย่างหลัง logout
@@ -971,8 +971,8 @@ const AddScope = ({ scopeID }) => {
                         scopePercentages[1] === 100
                           ? "success"
                           : scopePercentages[1] > 0
-                          ? "pending"
-                          : "none"
+                            ? "pending"
+                            : "none"
                       }`}
                     >
                       <p>{scopePercentages[1]}</p>
@@ -1008,8 +1008,8 @@ const AddScope = ({ scopeID }) => {
                         scopePercentages[2] === 100
                           ? "success"
                           : scopePercentages[2] > 0
-                          ? "pending"
-                          : "none"
+                            ? "pending"
+                            : "none"
                       }`}
                     >
                       <p>{scopePercentages[2]}</p>
@@ -1045,8 +1045,8 @@ const AddScope = ({ scopeID }) => {
                         scopePercentages[3] === 100
                           ? "success"
                           : scopePercentages[3] > 0
-                          ? "pending"
-                          : "none"
+                            ? "pending"
+                            : "none"
                       }`}
                     >
                       <p>{scopePercentages[3]}</p>
@@ -1082,8 +1082,8 @@ const AddScope = ({ scopeID }) => {
                         scopePercentages[4] === 100
                           ? "success"
                           : scopePercentages[4] > 0
-                          ? "pending"
-                          : "none"
+                            ? "pending"
+                            : "none"
                       }`}
                     >
                       <p>{scopePercentages[4]}</p>
@@ -1119,8 +1119,8 @@ const AddScope = ({ scopeID }) => {
                         scopePercentages[5] === 100
                           ? "success"
                           : scopePercentages[5] > 0
-                          ? "pending"
-                          : "none"
+                            ? "pending"
+                            : "none"
                       }`}
                     >
                       <p>{scopePercentages[5]}</p>
@@ -1185,7 +1185,7 @@ const AddScope = ({ scopeID }) => {
                         {
                           minimumFractionDigits: 5,
                           maximumFractionDigits: 5,
-                        }
+                        },
                       )}
                     </p>
                     <p className="unit">{"TCO2eq/visit"}</p>
@@ -1203,7 +1203,7 @@ const AddScope = ({ scopeID }) => {
                         {
                           minimumFractionDigits: 5,
                           maximumFractionDigits: 5,
-                        }
+                        },
                       )}
                     </p>
                     <p className="unit">{"TCO₂eq"}</p>
@@ -1350,7 +1350,7 @@ const AddScope = ({ scopeID }) => {
                                     const updatedRecords = records.map((r) =>
                                       r.id === record.id
                                         ? { ...r, [month.name]: value }
-                                        : r
+                                        : r,
                                     );
                                     setRecords(updatedRecords);
                                   }}
@@ -1371,7 +1371,7 @@ const AddScope = ({ scopeID }) => {
                                     {
                                       minimumFractionDigits: 2,
                                       maximumFractionDigits: 2,
-                                    }
+                                    },
                                   )}
                             </td>
                             <td className="text-center">
@@ -1506,12 +1506,12 @@ const AddScope = ({ scopeID }) => {
           <p style={{ fontSize: "16px" }}>
             <b>
               {t(
-                "Service Support System Development Group, Health Administration Division"
+                "Service Support System Development Group, Health Administration Division",
               )}
             </b>
             <br />
             {t(
-              "88/22 Moo 4 Building 3, 5th Floor, Office of the Permanent Secretary of Ministry of Public Health, Tiwanon Road, Talat Khwan, Mueang Nonthaburi, Nonthaburi 11000"
+              "88/22 Moo 4 Building 3, 5th Floor, Office of the Permanent Secretary of Ministry of Public Health, Tiwanon Road, Talat Khwan, Mueang Nonthaburi, Nonthaburi 11000",
             )}
             <br />
             {t("Tel: +660-2590-1635 | Fax: +660-2590-1641")}
@@ -1526,12 +1526,12 @@ const AddScope = ({ scopeID }) => {
           <p style={{ fontSize: "16px" }}>
             <b>
               {t(
-                "Environmental Economics Unit, Health Intervention and Technology Assessment Program Foundation (HITAP)"
+                "Environmental Economics Unit, Health Intervention and Technology Assessment Program Foundation (HITAP)",
               )}
             </b>
             <br />
             {t(
-              "Head Office: 88/22 Moo 4, Building 6, 6th Floor, Ministry of Public Health,Tiwanon Road, Talat Khwan Subdistrict, Mueang District, Nonthaburi Province, 11000, Thailand"
+              "Head Office: 88/22 Moo 4, Building 6, 6th Floor, Ministry of Public Health,Tiwanon Road, Talat Khwan Subdistrict, Mueang District, Nonthaburi Province, 11000, Thailand",
             )}
             <br />
             {t("Tel: +660-2590-4369")}
