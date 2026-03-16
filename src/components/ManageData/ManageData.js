@@ -5,6 +5,7 @@ import axios from "axios";
 import MenuPage from "../Menu/MenuPage";
 import BASE_URL from "../../config/apiConfig";
 import { useNavigate } from "react-router-dom";
+import AnnouncementBar from "../AnnouncementBar";
 
 const ManageData = () => {
   const { t } = useTranslation();
@@ -133,6 +134,7 @@ const ManageData = () => {
 
   return (
     <div className="main-bg">
+      <AnnouncementBar />
       <div className="main-container">
         <div className="bg-overlay">
           <img src="/images/bg-nav.png" alt="Background" />

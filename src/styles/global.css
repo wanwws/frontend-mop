@@ -170,7 +170,7 @@ text-transform: uppercase;
 
 .top-nav {
   position: fixed;
-  top: 0;
+  top: 36px;
   left: 0;
   width: 100%;
   padding: 15px 30px;

@@ -10,6 +10,7 @@ import {
 import { useTranslation } from "react-i18next";
 import BASE_URL from "../../config/apiConfig";
 import "../../styles/global.css";
+import AnnouncementBar from "../AnnouncementBar";
 
 const ChangePassword = () => {
   const navigate = useNavigate();
@@ -111,6 +112,7 @@ const ChangePassword = () => {
         fontFamily: "Prompt, sans-serif",
       }}
     >
+        <AnnouncementBar />
       <Card
         style={{
           width: 470,

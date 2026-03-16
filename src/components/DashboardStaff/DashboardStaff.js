@@ -14,6 +14,7 @@ import GraphZoneHealth from "../graphZoneHealth";
 import GraphAnnualEmission from "../graphAnnualEmission";
 import BASE_URL from "../../config/apiConfig";
 import MenuPage from "../Menu/MenuPage";
+import AnnouncementBar from "../AnnouncementBar";
 
 const DashboardStaff = () => {
   const navigate = useNavigate();
@@ -285,6 +286,7 @@ const DashboardStaff = () => {
 
   return (
     <div className="main-bg">
+      <AnnouncementBar />
       <div className="menu-toggle" id="show-menu-bar">
         <span></span>
         <span></span>

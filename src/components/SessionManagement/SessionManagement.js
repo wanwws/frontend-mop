@@ -7,6 +7,7 @@ import BASE_URL from "../../config/apiConfig";
 import MenuPage from "../Menu/MenuPage";
 import { useNavigate } from "react-router-dom";
 import { ReloadOutlined } from "@ant-design/icons";
+import AnnouncementBar from "../AnnouncementBar";
 
 const SessionManagement = () => {
   const [sessions, setSessions] = useState([]);
@@ -147,6 +148,7 @@ const SessionManagement = () => {
 
   return (
     <div className="main-bg">
+      <AnnouncementBar />
       <div className="menu-toggle" id="show-menu-bar">
         <span></span>
         <span></span>

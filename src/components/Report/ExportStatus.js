@@ -10,6 +10,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import BASE_URL from "../../config/apiConfig";
 import MenuPage from "../Menu/MenuPage";
 import { DownOutlined } from "@ant-design/icons";
+import AnnouncementBar from "../AnnouncementBar";
 
 const ExportStatus = () => {
   const navigate = useNavigate();
@@ -109,6 +110,7 @@ const ExportStatus = () => {
 
   return (
     <div className="main-bg">
+      <AnnouncementBar />
       <div className="menu-toggle" id="show-menu-bar">
         <span></span>
         <span></span>

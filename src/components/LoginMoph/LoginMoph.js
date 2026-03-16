@@ -5,6 +5,7 @@ import i18n from "../../i18n";
 import axios from "axios";
 import BASE_URL from "../../config/apiConfig";
 import { useTranslation } from "react-i18next";
+import AnnouncementBar from "../AnnouncementBar";
 
 const LoginMoph = () => {
   const [form] = Form.useForm();
@@ -102,6 +103,7 @@ const LoginMoph = () => {
   };
   return (
     <div className="main-bg">
+       <AnnouncementBar />
       <div className="top-nav">
         <div className="logo-box">
           <img

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import axios from "axios";
 import MenuPage from "../Menu/MenuPage";
 import BASE_URL from "../../config/apiConfig";
+import AnnouncementBar from "../AnnouncementBar"; 
 
 const UnlockAccount = () => {
   const { t, i18n } = useTranslation();
@@ -49,6 +50,7 @@ const UnlockAccount = () => {
 
   return (
     <div className="main-bg">
+      <AnnouncementBar />
       <style>{`
         .content-body {
           display: flex;

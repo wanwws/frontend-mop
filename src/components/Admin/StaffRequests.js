@@ -13,6 +13,7 @@ import {
   Descriptions,
   Form,
   Empty,
+  Pagination,
 } from "antd";
 import {
   MoreOutlined,
@@ -27,6 +28,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import BASE_URL from "../../config/apiConfig";
 import MenuPage from "../Menu/MenuPage";
+import AnnouncementBar from "../AnnouncementBar";
 
 const dash = (v) => (v === null || v === undefined || v === "" ? "-" : v);
 
@@ -42,6 +44,7 @@ const StaffRequests = () => {
     ADD: [1, 2, 3], // POST /staff/request
     APPROVE: [1, 2, 3], // POST /staff/request/approve
     EDIT: [1, 2],
+    EXPORT: [1, 2],
   };
 
   const hasPermission = (action) => PERMISSIONS[action]?.includes(roleID);
@@ -50,8 +53,10 @@ const StaffRequests = () => {
   const CAN_ADD = hasPermission("ADD");
   const CAN_APPROVE = hasPermission("APPROVE");
   const CAN_EDIT = hasPermission("EDIT");
+  const CAN_EXPORT = hasPermission("EXPORT");
 
   const [loading, setLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
   const [rows, setRows] = useState([]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [q, setQ] = useState("");
@@ -124,7 +129,7 @@ const StaffRequests = () => {
       await axios.post(
         `${BASE_URL}/staff/request/approve`,
         { userID, status }, // 1 = approve, 2 = not approve
-        { headers: { Authorization: `Bearer ${getToken()}` } }
+        { headers: { Authorization: `Bearer ${getToken()}` } },
       );
       message.success(status === 1 ? t("Approved") : t("Not Approved"));
       fetchData();
@@ -140,15 +145,21 @@ const StaffRequests = () => {
     return <Tag color="gold">{t("Request")}</Tag>;
   };
 
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 8;
+
   const filtered = rows.filter((r) => {
     const okStatus =
       statusFilter === "all" ? true : String(r.status) === statusFilter;
-    const text = `${r.username ?? ""} ${r.agencyName ?? ""}   ${r.agencyCode ?? ""} ${
-      r.provinceName ?? ""
-    } ${r.districtName ?? ""}`.toLowerCase();
+    const text =
+      `${r.username ?? ""} ${r.agencyName ?? ""}   ${r.agencyCode ?? ""} ${
+        r.provinceName ?? ""
+      } ${r.districtName ?? ""}`.toLowerCase();
     const okQ = q ? text.includes(q.toLowerCase()) : true;
     return okStatus && okQ;
   });
+
+  const pagedFiltered = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const Avatar = ({ name, email }) => {
     const ch = (name?.[0] || email?.[0] || "?").toUpperCase();
@@ -460,7 +471,7 @@ const StaffRequests = () => {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
             },
-          }
+          },
         );
       }
     } catch (err) {
@@ -598,7 +609,7 @@ const StaffRequests = () => {
       // ถ้ามี preset (เช่นจาก agency) และมันยังไม่อยู่ใน list → เติมเข้าไป
       if (preset && preset.subDistrictCode && preset.subDistrictName) {
         const exists = list.some(
-          (s) => s.subDistrictCode === preset.subDistrictCode
+          (s) => s.subDistrictCode === preset.subDistrictCode,
         );
         if (!exists) {
           list = [
@@ -899,8 +910,38 @@ const StaffRequests = () => {
     }
   };
 
+  const exportData = async () => {
+    const token = getToken();
+    setExportLoading(true);
+    try {
+      const res = await axios.post(
+        `${BASE_URL}/report/user/status`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      if (res?.data?.statusCode === 200 && res?.data?.data) {
+        const link = document.createElement("a");
+        link.href = res.data.data;
+        link.setAttribute("download", "");
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        message.success(t("Export Data success!"));
+      } else {
+        message.error(res?.data?.message || t("Export Data failed."));
+      }
+    } catch (e) {
+      console.error(e);
+      message.error(e?.response?.data?.message || t("Export Data failed."));
+    } finally {
+      setExportLoading(false);
+    }
+  };
   return (
     <div className="main-bg">
+      <AnnouncementBar />
       <div className="menu-toggle" id="show-menu-bar">
         <span></span>
         <span></span>
@@ -980,17 +1021,60 @@ const StaffRequests = () => {
                 </div>
 
                 {CAN_VIEW_LIST ? (
-                  <Table
-                    rowKey="userID"
-                    loading={loading}
-                    columns={columns}
-                    dataSource={filtered}
-                    pagination={{ pageSize: 8 }}
-                    bordered
-                    scroll={{ x: "max-content" }}
-                    sticky
-                    style={{ whiteSpace: "nowrap" }}
-                  />
+                  <>
+                    <Table
+                      rowKey="userID"
+                      loading={loading}
+                      columns={columns}
+                      dataSource={pagedFiltered}
+                      pagination={false}
+                      bordered
+                      scroll={{ x: "max-content" }}
+                      sticky
+                      style={{ whiteSpace: "nowrap" }}
+                    />
+                    {filtered.length > 0 && (
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginTop: "20px",
+                          marginBottom: "40px",
+                          padding: "0 4px",
+                        }}
+                      >
+                        {CAN_EXPORT ? (
+                          <Button
+                            loading={exportLoading}
+                            onClick={exportData}
+                            style={{
+                              backgroundColor: "#0D7664",
+                              borderColor: "#0D7664",
+                              color: "white",
+                              borderRadius: "8px",
+                              padding: "0 40px",
+                              height: "42px",
+                              fontWeight: "500",
+                              fontSize: "15px",
+                              boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
+                            }}
+                          >
+                            {t("Export Data")}
+                          </Button>
+                        ) : (
+                          <div />
+                        )}
+                        <Pagination
+                          current={page}
+                          total={filtered.length}
+                          pageSize={PAGE_SIZE}
+                          onChange={(newPage) => setPage(newPage)}
+                          showSizeChanger={false}
+                        />
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div
                     style={{
@@ -1004,7 +1088,7 @@ const StaffRequests = () => {
                       description={
                         <span>
                           {t(
-                            "You can submit a staff request. Only System Admin/Staff/Super User can view the list."
+                            "You can submit a staff request. Only System Admin/Staff/Super User can view the list.",
                           )}
                         </span>
                       }
@@ -1288,7 +1372,7 @@ const StaffRequests = () => {
                   onChange={(val) =>
                     fetchSubDistricts(
                       editForm.getFieldValue("provinceCode"),
-                      val
+                      val,
                     )
                   }
                 />
@@ -1645,12 +1729,12 @@ const StaffRequests = () => {
         <p style={{ fontSize: 16 }}>
           <b>
             {t(
-              "Service Support System Development Group, Health Administration Division"
+              "Service Support System Development Group, Health Administration Division",
             )}
           </b>
           <br />
           {t(
-            "88/22 Moo 4 Building 3, 5th Floor, Office of the Permanent Secretary of Ministry of Public Health, Tiwanon Road, Talat Khwan, Mueang Nonthaburi, Nonthaburi 11000"
+            "88/22 Moo 4 Building 3, 5th Floor, Office of the Permanent Secretary of Ministry of Public Health, Tiwanon Road, Talat Khwan, Mueang Nonthaburi, Nonthaburi 11000",
           )}
           <br />
           {t("Tel: +660-2590-1635 | Fax: +660-2590-1641")}

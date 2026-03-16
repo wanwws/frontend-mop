@@ -245,5 +245,8 @@
   "EXPORT STATUS": "การส่งออกสถานะ",
   "Export status": "ส่งออกสถานะ",
   "Export status report for internal use.": "ส่งออกรายงานสถานะสำหรับใช้ภายใน",
-  "This feature allows System Admin/Staff to download the latest hospital status summary.": "ฟีเจอร์นี้ช่วยให้ผู้ดูแลระบบ/เจ้าหน้าที่สามารถดาวน์โหลดสรุปสถานะล่าสุดของโรงพยาบาลได้"
+  "This feature allows System Admin/Staff to download the latest hospital status summary.": "ฟีเจอร์นี้ช่วยให้ผู้ดูแลระบบ/เจ้าหน้าที่สามารถดาวน์โหลดสรุปสถานะล่าสุดของโรงพยาบาลได้",
+  "Export Data": "ส่งออกข้อมูล",
+  "Export Data success!": "ส่งออกข้อมูลสำเร็จ!",
+  "Export Data failed.": "ส่งออกข้อมูลไม่สำเร็จ!"
 }

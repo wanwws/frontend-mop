@@ -9,6 +9,7 @@ import axios from "axios";
 import "bootstrap/dist/css/bootstrap.min.css";
 import BASE_URL from "../../config/apiConfig";
 import MenuPage from "../Menu/MenuPage";
+import AnnouncementBar from "../AnnouncementBar";
 
 const HospitalInfo = () => {
   const navigate = useNavigate();
@@ -428,6 +429,7 @@ const HospitalInfo = () => {
 
   return (
     <div className="main-bg">
+      <AnnouncementBar />
       <div className="menu-toggle" id="show-menu-bar">
         <span></span>
         <span></span>

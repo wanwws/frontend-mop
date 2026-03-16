@@ -12,6 +12,7 @@ import GrapScopeTwo from "../graphScopeTwo";
 import { useTranslation } from "react-i18next";
 import BASE_URL from "../../config/apiConfig";
 import MenuPage from "../Menu/MenuPage";
+import AnnouncementBar from "../AnnouncementBar";
 
 const { Option } = Select;
 
@@ -906,6 +907,7 @@ const AddScope = ({ scopeID }) => {
 
   return (
     <div className="main-bg">
+      <AnnouncementBar />
       <div className="menu-toggle" id="show-menu-bar">
         <span></span>
         <span></span>

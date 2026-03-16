@@ -9,6 +9,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import BASE_URL from "../../config/apiConfig";
 import MenuPage from "../Menu/MenuPage";
 import FieldRow from "./FieldRow";
+import AnnouncementBar from "../AnnouncementBar";
 
 const Account = () => {
   const navigate = useNavigate();
@@ -373,6 +374,7 @@ const Account = () => {
 
   return (
     <div className="main-bg">
+      <AnnouncementBar />
       <style>{`
   .account-two-col{
     display:grid;

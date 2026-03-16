@@ -11,6 +11,7 @@ import GraphIntensity from "../graphIntensity";
 import GraphZoneHealth from "../graphZoneHealth";
 import GraphAnnualEmission from "../graphAnnualEmission";
 import BASE_URL from "../../config/apiConfig";
+import AnnouncementBar from "../AnnouncementBar";
 
 const HomeMoph = () => {
   const navigate = useNavigate();
@@ -294,6 +295,7 @@ const HomeMoph = () => {
 
   return (
     <div>
+      <AnnouncementBar />
       <div className="main-bg index-bg" ref={homeRef}>
         <div class="menu-toggle" id="show-menu-bar" onClick={()=> setIsMenuOpen(true)}>
           <span></span>
