@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable jsx-a11y/anchor-is-valid */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button, Dropdown, message, Modal, Pagination } from "antd";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -44,6 +44,8 @@ const EmissionsRecord = () => {
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
+
+  const isRestoringRef = useRef(false);
 
   // ฟังก์ชันช่วยอ่าน Token
   const getToken = () => localStorage.getItem("token");
@@ -121,8 +123,55 @@ const EmissionsRecord = () => {
     }
   }, [isHospital]);
 
+  // Restore saved filter selections when navigating back from add-record
+  useEffect(() => {
+    if (!isHospital) {
+      const savedProvince = sessionStorage.getItem("er_selectedProvince");
+      const savedDistrict = sessionStorage.getItem("er_selectedDistrict");
+      const savedHospitalCode = sessionStorage.getItem("er_selectedHospitalCode");
+      const savedHospitalName = sessionStorage.getItem("er_selectedHospitalName");
+
+      if (!savedProvince) return;
+
+      const restore = async () => {
+        isRestoringRef.current = true;
+        try {
+          setSelectedProvince(savedProvince);
+
+          const districtRes = await axios.get(`${BASE_URL}/master/district`, {
+            params: { provinceCode: savedProvince },
+            headers: { Authorization: `Bearer ${getToken()}` },
+          });
+          setDistricts(districtRes.data.data);
+
+          if (savedDistrict) {
+            setSelectedDistrict(savedDistrict);
+
+            const hospitalRes = await axios.get(`${BASE_URL}/master/hospital`, {
+              params: { districtCode: savedDistrict, provinceCode: savedProvince },
+              headers: { Authorization: `Bearer ${getToken()}` },
+            });
+            setHospitals(hospitalRes.data.data);
+
+            if (savedHospitalCode) {
+              setSelectedHospitalCode(savedHospitalCode);
+              setSelectedHospitalName(savedHospitalName || "");
+            }
+          }
+        } catch (err) {
+          console.error("Error restoring filter:", err);
+        } finally {
+          isRestoringRef.current = false;
+        }
+      };
+
+      restore();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!isHospital && selectedProvince) {
+      if (isRestoringRef.current) return;
       setDistricts([]);
       setHospitals([]);
       setSelectedDistrict("");
@@ -141,6 +190,7 @@ const EmissionsRecord = () => {
 
   useEffect(() => {
     if (!isHospital && selectedDistrict) {
+      if (isRestoringRef.current) return;
       setHospitals([]);
       setSelectedHospitalCode("");
       setSelectedHospitalName("");
@@ -230,6 +280,9 @@ const EmissionsRecord = () => {
       clearSession();
       message.success("Logout successful!");
       localStorage.clear();
+      ["er_selectedProvince", "er_selectedDistrict", "er_selectedHospitalCode", "er_selectedHospitalName"].forEach(
+        (key) => sessionStorage.removeItem(key)
+      );
       navigate("/");
     } catch (error) {
       console.error("Logout error:", error);
@@ -321,6 +374,10 @@ const EmissionsRecord = () => {
                     className="input-theme-select"
                     value={selectedProvince}
                     onChange={(e) => {
+                      sessionStorage.removeItem("er_selectedProvince");
+                      sessionStorage.removeItem("er_selectedDistrict");
+                      sessionStorage.removeItem("er_selectedHospitalCode");
+                      sessionStorage.removeItem("er_selectedHospitalName");
                       setSelectedProvince(e.target.value);
                       setSelectedDistrict("");
                       setSelectedHospitalCode("");
@@ -511,6 +568,10 @@ const EmissionsRecord = () => {
                                 alt="View"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  sessionStorage.setItem("er_selectedProvince", selectedProvince);
+                                  sessionStorage.setItem("er_selectedDistrict", selectedDistrict);
+                                  sessionStorage.setItem("er_selectedHospitalCode", selectedHospitalCode);
+                                  sessionStorage.setItem("er_selectedHospitalName", selectedHospitalName);
                                   const emissionData = {
                                     quarterInputID: record.quarterInputID,
                                     quarterBudgetID: record.quarterBudgetID,

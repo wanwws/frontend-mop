@@ -87,6 +87,9 @@ const LoginMoph = () => {
         localStorage.setItem("districtCode", userData.districtCode || "");
         localStorage.setItem("userInfo", JSON.stringify(userData));
         form.resetFields();
+        ["er_selectedProvince", "er_selectedDistrict", "er_selectedHospitalCode", "er_selectedHospitalName"].forEach(
+          (key) => sessionStorage.removeItem(key)
+        );
         navigate("/");
       } else {
         message.error(response.data?.message || t("Invalid credentials"));

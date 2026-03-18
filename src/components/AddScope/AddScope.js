@@ -159,6 +159,12 @@ const AddScope = ({ scopeID }) => {
   }, []);
 
   useEffect(() => {
+    if (Object.keys(scopePercentages).length > 0) {
+      process.setProgress();
+    }
+  }, [scopePercentages]);
+
+  useEffect(() => {
     const storedScopeData = qGet("scopePercentages", {});
     const storedEmissionData = qGet("emissionData", {});
 
@@ -373,7 +379,6 @@ const AddScope = ({ scopeID }) => {
         });
         setScopePercentages(scopeData);
         qSet("scopePercentages", scopeData);
-        process.setProgress();
 
         // เก็บ Emission Data ลง localStorage
         const newEmissionData = {
@@ -601,8 +606,6 @@ const AddScope = ({ scopeID }) => {
           return updatedScopeData;
         });
 
-        process.setProgress();
-
         // อัปเดต Emission Data
         const existingEmissionData = qGet("emissionData", {});
         const updatedEmissionData = {
@@ -723,8 +726,6 @@ const AddScope = ({ scopeID }) => {
           qSet("scopePercentages", updatedScopeData);
           return updatedScopeData;
         });
-
-        process.setProgress();
 
         // อัปเดต Emission Data
         const existingEmissionData = qGet("emissionData", {});
@@ -883,16 +884,63 @@ const AddScope = ({ scopeID }) => {
     } finally {
       // 🧹 เคลียร์ทุกอย่างหลัง logout
       localStorage.clear();
+      ["er_selectedProvince", "er_selectedDistrict", "er_selectedHospitalCode", "er_selectedHospitalName"].forEach(
+        (key) => sessionStorage.removeItem(key)
+      );
       navigate("/");
       setIsLoggingOut(false);
     }
   };
 
-  const showConfirmModal = () => {
+  const checkPreviousQuartersSubmitted = async () => {
+    // อ่านจาก localStorage ที่ EmissionsRecord เก็บไว้พร้อม quarterBudgetID และ year ที่ถูกต้อง
+    const localEmission = JSON.parse(localStorage.getItem("emissionData") || "{}");
+    const currentQuarterBudgetID = Number(localEmission.quarterBudgetID ?? emissionData.quarterBudgetID);
+    const currentYear = Number(localEmission.year ?? emissionData.year);
+
+    if (!currentQuarterBudgetID || !currentYear || currentQuarterBudgetID <= 1) {
+      return true;
+    }
+
+    try {
+      const res = await axios.get(`${BASE_URL}/activity/history/list`, {
+        params: {
+          hospitalCode,
+          currentDate: new Date().toISOString().split("T")[0],
+          page: 1,
+          size: 50,
+        },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const allRecords = res.data.data || [];
+      const previousQuarters = allRecords.filter(
+        (r) => Number(r.year) === currentYear && Number(r.quarterBudgetID) < currentQuarterBudgetID
+      );
+
+      return previousQuarters.every((r) => r.statusID === 3);
+    } catch (err) {
+      console.error("Error checking previous quarters:", err);
+      return true;
+    }
+  };
+
+  const showConfirmModal = async () => {
     if (!isField30_1Complete()) {
       message.error(t("activity30_1_required"));
       return;
     }
+
+    const canSubmit = await checkPreviousQuartersSubmitted();
+    if (!canSubmit) {
+      message.warning(
+        isTH
+          ? "ไม่สามารถ Submit ได้ เนื่องจาก Quarter ก่อนหน้าในปีเดียวกันยังไม่ได้ Submit กรุณา Submit Quarter ก่อนหน้าก่อน"
+          : "Cannot submit. The previous quarter in the same year has not been submitted yet. Please submit the previous quarter first."
+      );
+      return;
+    }
+
     setIsModalVisible(true);
   };
 

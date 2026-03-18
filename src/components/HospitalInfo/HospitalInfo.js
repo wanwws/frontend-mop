@@ -16,10 +16,13 @@ const HospitalInfo = () => {
   const location = useLocation();
 
   const recordData =
-    location.state || JSON.parse(sessionStorage.getItem("emissionData")) || {};
+    location.state ||
+    JSON.parse(sessionStorage.getItem("emissionData")) ||
+    JSON.parse(localStorage.getItem("emissionData")) ||
+    {};
 
   const [quarterInputID, setQuarterInputID] = useState(
-    recordData.quarterInputID || ""
+    recordData.quarterInputID || sessionStorage.getItem("quarterInputID") || ""
   );
   const [statusID, setStatusID] = useState(recordData.statusID || "");
   const [hospitals, setHospitals] = useState([]);
@@ -259,7 +262,6 @@ const HospitalInfo = () => {
             scopeData[scope.scopeID] = scope.percentOfData;
           });
           setScopePercentages(scopeData);
-          process.setProgress();
         }
       } catch (error) {
         console.error("❌ Error fetching data:", error);
@@ -271,6 +273,12 @@ const HospitalInfo = () => {
     fetchHospitalInfo();
     fetchScopePercentages();
   }, [quarterInputID]);
+
+  useEffect(() => {
+    if (Object.keys(scopePercentages).length > 0) {
+      process.setProgress();
+    }
+  }, [scopePercentages]);
 
   useEffect(() => {
     const handleBeforeUnload = () => {
