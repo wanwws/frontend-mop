@@ -37,6 +37,16 @@ const qRemove = (key) => {
   sessionStorage.removeItem(qKey(key));
 };
 
+// ===== Fiscal Year Helpers =====
+// ค่า year ในระบบคือปีงบประมาณอยู่แล้ว (เช่น FY2026 ทุก quarter จะ year=2026)
+// ปีงบประมาณปัจจุบัน: ถ้าเดือน ต.ค.-ธ.ค. → ปีงบ = ปีปฏิทิน+1, ม.ค.-ก.ย. → ปีงบ = ปีปฏิทิน
+const getCurrentFiscalYear = () => {
+  const now = new Date();
+  const month = now.getMonth() + 1; // 1-12
+  const year = now.getFullYear();
+  return month >= 10 ? year + 1 : year;
+};
+
 const EditableDropdownInput = ({
   value = "",
   onChange,
@@ -139,6 +149,18 @@ const AddScope = ({ scopeID }) => {
   const currentLang = i18n.language;
   const scopekey = `scope_${scopeID}`;
   const isTH = (i18n.language || "").toLowerCase().startsWith("th");
+
+  // ตรวจสอบว่าข้อมูลนี้อยู่ในปีงบประมาณปัจจุบันหรือไม่
+  // อ่านจาก localStorage เพราะ EmissionsRecord เก็บ year/quarterBudgetID ไว้ที่นั่น
+  const _localEmData = (() => {
+    try { return JSON.parse(localStorage.getItem("emissionData") || "{}"); }
+    catch { return {}; }
+  })();
+  const _emYear = emissionData.year ?? _localEmData.year;
+  const isNotCurrentFiscalYear =
+    _emYear != null
+      ? Number(_emYear) !== getCurrentFiscalYear()
+      : false;
 
   useEffect(() => {
     if (emissionData?.quarterInputID) {
@@ -1408,7 +1430,7 @@ const AddScope = ({ scopeID }) => {
                                   id={record.id}
                                   column={month.name}
                                   disabled={
-                                    isDisabled || record.inputType !== 1
+                                    isDisabled || isNotCurrentFiscalYear || record.inputType !== 1
                                   }
                                 />
                               </td>
@@ -1493,7 +1515,7 @@ const AddScope = ({ scopeID }) => {
                   message.warning(t("You do not have permission to submit."));
                 }
               }}
-              disabled={isDisabled || ![1, 2, 3].includes(roleID)}
+              disabled={isDisabled || isNotCurrentFiscalYear || ![1, 2, 3].includes(roleID)}
             >
               {t("submit")}
             </button>
@@ -1502,7 +1524,7 @@ const AddScope = ({ scopeID }) => {
               type="button"
               className="btn btn-theme-success btn-save"
               onClick={() => handleSaveOrUpdate("save")}
-              disabled={isDisabled || loadingSave}
+              disabled={isDisabled || isNotCurrentFiscalYear || loadingSave}
             >
               {t("save")}
             </button>

@@ -498,6 +498,7 @@ const EmissionsRecord = () => {
                   <table className="table table-report">
                     <thead>
                       <tr>
+                        <th className="text-center"></th>
                         <th className="text-center">#</th>
                         <th className="text-center">{t("Month")}</th>
                         <th className="text-center">{t("Year")}</th>
